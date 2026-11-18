@@ -1,5 +1,6 @@
 import SpriteKit
 import SwiftUI
+import UIKit
 
 /// Coordinator holding the single `GameEngine` and `ArenaScene` across SwiftUI redraws.
 @MainActor

@@ -111,7 +111,7 @@ private final class EntityVisualPool {
 }
 
 /// Snapshot of match state pushed sparingly (only on value changes) to SwiftUI HUD.
-struct ArenaHUDState: Equatable {
+struct ArenaHUDState: Equatable, Sendable {
     var percentage: Double = 0
     var peakPercentage: Double = 0
     var kills: Int = 0

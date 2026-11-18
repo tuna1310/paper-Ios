@@ -4,8 +4,8 @@ import XCTest
 final class CollisionTests: XCTestCase {
     func testSelfTrailCollisionEndsMatchWithSelfTrailReason() {
         let engine = GameEngine(
-            gridWidth: 40,
-            gridHeight: 40,
+            gridWidth: 60,
+            gridHeight: 60,
             settings: MatchSettings(
                 botDifficulty: .normal,
                 edgeRule: .die,
@@ -13,11 +13,11 @@ final class CollisionTests: XCTestCase {
                 botCount: 10
             )
         )
-        engine.player.posX = 20.5
-        engine.player.posY = 25.5
+        engine.player.posX = 30.5
+        engine.player.posY = 35.5
         engine.player.direction = .right
-        engine.player.trail.append(gx: 21, gy: 25)
-        engine.grid.setOwner(GameConfig.neutralOwnerId, at: 21, gy: 25)
+        engine.player.trail.append(gx: 31, gy: 35)
+        engine.grid.setOwner(GameConfig.neutralOwnerId, at: 31, gy: 35)
 
         for _ in 0..<10 {
             if !engine.isPlaying { break }
@@ -141,7 +141,7 @@ final class CollisionTests: XCTestCase {
     }
 
     func testVictoryTriggersAt100PercentTerritoryAndStarvationEliminatesZeroCellEntity() {
-        let engine = GameEngine(gridWidth: 16, gridHeight: 16)
+        let engine = GameEngine(gridWidth: 60, gridHeight: 60)
         let victimBot = engine.bots[0]
         engine.grid.clearTerritory(for: victimBot.id)
         engine.tick()

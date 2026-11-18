@@ -43,7 +43,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.paperterritory.game.tests
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_STRICT_CONCURRENCY: targeted
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/PaperTerritory.app/$(BUNDLE_EXECUTABLE_NAME)"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/PaperTerritory.app/PaperTerritory"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
 schemes:

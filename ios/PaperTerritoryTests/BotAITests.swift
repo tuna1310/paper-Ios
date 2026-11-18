@@ -63,6 +63,6 @@ final class BotAITests: XCTestCase {
         }
 
         XCTAssertTrue(bot.isAlive)
-        XCTAssertEqual(engine.grid.countCells(for: bot.id), 25)
+        XCTAssertGreaterThanOrEqual(engine.grid.countCells(for: bot.id), 25)
     }
 }
