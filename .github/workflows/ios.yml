@@ -1,0 +1,90 @@
+name: iOS CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-test-lint:
+    name: Build, Test & Lint (iOS Simulator)
+    runs-on: macos-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Show Xcode & Swift environment
+        run: |
+          xcodebuild -version
+          swift --version
+          mkdir -p artifacts
+
+      - name: Install CI tools (XcodeGen, SwiftLint, SwiftFormat)
+        run: |
+          for tool in xcodegen swiftlint swiftformat; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+              brew install "$tool"
+            fi
+          done
+          xcodegen --version
+          swiftlint version
+          swiftformat --version
+
+      - name: Check SwiftFormat
+        run: |
+          set -o pipefail
+          swiftformat --lint ios 2>&1 | tee artifacts/swiftformat.log
+
+      - name: Run SwiftLint
+        run: |
+          set -o pipefail
+          swiftlint lint --strict --config ios/.swiftlint.yml ios 2>&1 | tee artifacts/swiftlint.log
+
+      - name: Generate Xcode project via XcodeGen
+        run: |
+          cd ios
+          xcodegen generate
+
+      - name: Select available iOS Simulator
+        id: sim
+        run: |
+          SIM_UDID=$(python3 -c '
+          import json, subprocess, sys
+          data = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"]))
+          candidates = []
+          for runtime, devices in data.get("devices", {}).items():
+              if "iOS" not in runtime:
+                  continue
+              for dev in devices:
+                  if dev.get("isAvailable") and "iPhone" in dev.get("name", ""):
+                      candidates.append((runtime, dev["name"], dev["udid"]))
+          if not candidates:
+              sys.exit("No available iPhone Simulator found")
+          candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
+          print(f"Selected simulator: {candidates[0][1]} ({candidates[0][0]}) -> {candidates[0][2]}", file=sys.stderr)
+          print(candidates[0][2])
+          ')
+          echo "udid=$SIM_UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Build & Run Unit Tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project ios/PaperTerritory.xcodeproj \
+            -scheme PaperTerritory \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath ios/DerivedData \
+            -resultBundlePath artifacts/TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGN_IDENTITY="-" \
+            2>&1 | tee artifacts/xcodebuild.log
+
+      - name: Upload CI logs and test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ci-logs
+          path: artifacts/
+          retention-days: 14

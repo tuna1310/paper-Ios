@@ -1,0 +1,58 @@
+name: PaperTerritory
+options:
+  bundleIdPrefix: com.paperterritory
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    CODE_SIGNING_REQUIRED: "NO"
+
+targets:
+  PaperTerritory:
+    type: application
+    platform: iOS
+    sources:
+      - path: PaperTerritory
+        excludes:
+          - "Resources/Info.plist"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.paperterritory.game
+        INFOPLIST_FILE: PaperTerritory/Resources/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_STRICT_CONCURRENCY: targeted
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+  PaperTerritoryTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: PaperTerritoryTests
+    dependencies:
+      - target: PaperTerritory
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.paperterritory.game.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_STRICT_CONCURRENCY: targeted
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/PaperTerritory.app/$(BUNDLE_EXECUTABLE_NAME)"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
+schemes:
+  PaperTerritory:
+    build:
+      targets:
+        PaperTerritory: all
+        PaperTerritoryTests: [test]
+    test:
+      gatherCoverageData: false
+      targets:
+        - PaperTerritoryTests
