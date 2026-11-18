@@ -2,7 +2,13 @@ name: iOS CI
 
 on:
   push:
+    branches:
+      - main
+      - feature-paperio-ios
   pull_request:
+    branches:
+      - main
+      - feature-paperio-ios
   workflow_dispatch:
 
 jobs:
@@ -33,22 +39,29 @@ jobs:
           swiftformat --version
 
       - name: Check SwiftFormat
+        id: format
+        continue-on-error: true
         run: |
           set -o pipefail
-          swiftformat --lint ios 2>&1 | tee artifacts/swiftformat.log
+          (cd ios && swiftformat --lint --config .swiftformat .) 2>&1 | tee artifacts/swiftformat.log
 
       - name: Run SwiftLint
+        id: lint
+        continue-on-error: true
         run: |
           set -o pipefail
-          swiftlint lint --strict --config ios/.swiftlint.yml ios 2>&1 | tee artifacts/swiftlint.log
+          (cd ios && swiftlint lint --strict --config .swiftlint.yml) 2>&1 | tee artifacts/swiftlint.log
 
       - name: Generate Xcode project via XcodeGen
+        id: gen
+        continue-on-error: true
         run: |
-          cd ios
-          xcodegen generate
+          set -o pipefail
+          (cd ios && xcodegen generate) 2>&1 | tee artifacts/xcodegen.log
 
       - name: Select available iOS Simulator
         id: sim
+        if: steps.gen.outcome == 'success'
         run: |
           SIM_UDID=$(python3 -c '
           import json, subprocess, sys
@@ -69,6 +82,9 @@ jobs:
           echo "udid=$SIM_UDID" >> "$GITHUB_OUTPUT"
 
       - name: Build & Run Unit Tests
+        id: test
+        if: steps.gen.outcome == 'success'
+        continue-on-error: true
         run: |
           set -o pipefail
           xcodebuild test \
@@ -77,9 +93,18 @@ jobs:
             -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath ios/DerivedData \
             -resultBundlePath artifacts/TestResults.xcresult \
-            CODE_SIGNING_ALLOWED=YES \
-            CODE_SIGN_IDENTITY="-" \
             2>&1 | tee artifacts/xcodebuild.log
+
+      - name: Write CI Summary
+        if: always()
+        run: |
+          {
+            echo "## iOS CI Results"
+            echo "- SwiftFormat: ${{ steps.format.outcome }}"
+            echo "- SwiftLint: ${{ steps.lint.outcome }}"
+            echo "- XcodeGen: ${{ steps.gen.outcome }}"
+            echo "- Build & Test: ${{ steps.test.outcome }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload CI logs and test results
         if: always()
@@ -88,3 +113,14 @@ jobs:
           name: ios-ci-logs
           path: artifacts/
           retention-days: 14
+
+      - name: Enforce All CI Gates
+        if: always()
+        run: |
+          if [ "${{ steps.format.outcome }}" != "success" ] || \
+             [ "${{ steps.lint.outcome }}" != "success" ] || \
+             [ "${{ steps.gen.outcome }}" != "success" ] || \
+             [ "${{ steps.test.outcome }}" != "success" ]; then
+            echo "One or more CI checks failed. See logs above or in artifacts."
+            exit 1
+          fi
