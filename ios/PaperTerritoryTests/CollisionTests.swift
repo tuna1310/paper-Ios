@@ -20,7 +20,9 @@ final class CollisionTests: XCTestCase {
         engine.grid.setOwner(GameConfig.neutralOwnerId, at: 31, gy: 35)
 
         for _ in 0..<10 {
-            if !engine.isPlaying { break }
+            if !engine.isPlaying {
+                break
+            }
             engine.tick()
         }
 
@@ -42,7 +44,9 @@ final class CollisionTests: XCTestCase {
 
         for _ in 0..<12 {
             engine.tick()
-            if !victimBot.isAlive { break }
+            if !victimBot.isAlive {
+                break
+            }
         }
 
         XCTAssertFalse(victimBot.isAlive)
@@ -85,7 +89,9 @@ final class CollisionTests: XCTestCase {
 
         for _ in 0..<10 {
             engine.tick()
-            if !engine.isPlaying { break }
+            if !engine.isPlaying {
+                break
+            }
         }
 
         XCTAssertEqual(engine.gameState, .gameOver(.boundary))

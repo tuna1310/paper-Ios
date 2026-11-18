@@ -42,6 +42,12 @@ open PaperTerritory.xcodeproj
      -scheme PaperTerritory \
      -destination 'platform=iOS Simulator,name=iPhone 16'
    ```
+5. **Run Lint & Format Checks (identical to CI):**
+   ```bash
+   (cd ios && swiftlint lint --strict --config .swiftlint.yml)
+   (cd ios && swiftformat --lint --config .swiftformat .)
+   ```
+   Always pass `--config .swiftformat` from `ios/` (the single canonical config shared with `.github/workflows/ios.yml` and `.github/workflows/format-fix.yml`).
 
 ---
 

@@ -96,7 +96,9 @@ private final class EntityVisualPool {
         if visibleCount < poolCount {
             for idx in visibleCount..<poolCount {
                 let node = trailPool[idx]
-                if node.isHidden { break }
+                if node.isHidden {
+                    break
+                }
                 node.isHidden = true
             }
         }
@@ -104,7 +106,9 @@ private final class EntityVisualPool {
 
     private func hideAllTrailSegments() {
         for seg in trailPool {
-            if seg.isHidden { break }
+            if seg.isHidden {
+                break
+            }
             seg.isHidden = true
         }
     }

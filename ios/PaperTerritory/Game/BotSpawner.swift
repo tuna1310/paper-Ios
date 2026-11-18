@@ -48,7 +48,9 @@ enum BotSpawner {
         let radius = GameConfig.starterRadiusCells
         let minClear = GameConfig.botSpawnMinClearanceCells
         for other in allEntities where other.isAlive {
-            if abs(other.cellX - gx) + abs(other.cellY - gy) < minClear { return false }
+            if abs(other.cellX - gx) + abs(other.cellY - gy) < minClear {
+                return false
+            }
         }
         if requireAllNeutral {
             let neutral = GameConfig.neutralOwnerId

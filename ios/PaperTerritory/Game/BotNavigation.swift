@@ -143,18 +143,26 @@ final class BotReachabilityAnalyzer {
             let nx = cell.gx + dir.dx
             let ny = cell.gy + dir.dy
             guard context.grid.isInsideBounds(gx: nx, gy: ny) else { continue }
-            if let blocked = context.blockedOrigin, nx == blocked.gx && ny == blocked.gy { continue }
-            if context.bot.trail.contains(gx: nx, gy: ny) { continue }
+            if let blocked = context.blockedOrigin, nx == blocked.gx && ny == blocked.gy {
+                continue
+            }
+            if context.bot.trail.contains(gx: nx, gy: ny) {
+                continue
+            }
 
             if context.grid.owner(at: nx, gy: ny) == context.bot.id {
                 state.reachedHome = true
-                if state.stepsToHome == nil { state.stepsToHome = nextDist }
+                if state.stepsToHome == nil {
+                    state.stepsToHome = nextDist
+                }
                 continue
             }
 
             let idx = ny * gridWidth + nx
             guard visitedTokens[idx] != context.token else { continue }
-            if state.qTail >= Self.queueCapacity { return true }
+            if state.qTail >= Self.queueCapacity {
+                return true
+            }
             visitedTokens[idx] = context.token
             queueX[state.qTail] = Int32(nx)
             queueY[state.qTail] = Int32(ny)
@@ -165,7 +173,9 @@ final class BotReachabilityAnalyzer {
     }
 
     private func ensureCapacity(width: Int, height: Int) {
-        if gridWidth == width && gridHeight == height { return }
+        if gridWidth == width && gridHeight == height {
+            return
+        }
         gridWidth = width
         gridHeight = height
         visitedTokens = [UInt32](repeating: 0, count: width * height)
@@ -209,7 +219,9 @@ enum BotNavigation {
     static func findNearestOwnedCell(for ownerId: UInt8, from origin: GridPoint, grid: GridMap) -> GridPoint? {
         let bounds = grid.bounds(for: ownerId)
         guard !bounds.isEmpty else { return nil }
-        if grid.owner(at: origin.gx, gy: origin.gy) == ownerId { return origin }
+        if grid.owner(at: origin.gx, gy: origin.gy) == ownerId {
+            return origin
+        }
 
         for radius in 1...30 {
             if let hit = ownedCellAtManhattanRadius(

@@ -91,3 +91,16 @@ Tracks every GitHub Actions CI run (`macos-latest`, `.github/workflows/ios.yml`)
      - Split into two independent parallel jobs (`build-ipa` and `test-and-lint`) on `macos-15` with pinned `/Applications/Xcode_16.4.app/Contents/Developer` (`iOS 18.5` SDK & preinstalled Simulator runtimes).
      - `build-ipa` cannot be blocked by SwiftFormat, SwiftLint, Simulator, or XCTest; builds `Release` (`-sdk iphoneos`, `-destination "generic/platform=iOS"`, `CODE_SIGNING_ALLOWED=NO`, `CODE_SIGNING_REQUIRED=NO`), packages `Payload/PaperTerritory.app` into `artifacts/PaperTerritory-unsigned.ipa`, logs the exact IPA path and byte size, and uploads artifact `paperio-unsigned-ipa` (`if-no-files-found: error`, `retention-days: 14`).
   3. **Created [`docs/INSTALL_IPA.md`](docs/INSTALL_IPA.md)** (and aligned `IOS_SETUP.md`): Concise Sideloadly & AltStore installation instructions for `paperio-unsigned-ipa`.
+
+---
+
+## Round 7 — Run #6 (`44321341699`, commit `9693ab9`) Partial Green & Final `wrapIfStatementBodies` Sweep
+
+- **Observed CI result (`macos-15`, pinned `Xcode 16.4`):**
+  - **`Build Unsigned IPA (iOS)` (`build-ipa`): `SUCCESS` (`✅`)** — uploaded **`paperio-unsigned-ipa` (`437,911` bytes)** cleanly!
+  - **`Test & Lint (iOS Simulator)` (`test-and-lint`):**
+    - `XcodeGen` (`✅`), `Provision & Boot iOS Simulator` (`✅`), **`Build & Run Unit Tests (iOS Simulator)` (`✅` — `BotAITests` & `MovementAndInputTests` fixed and passing)**, and **`SwiftLint` (`✅` — `0` violations)** all passed!
+    - Failed **only** on `Check SwiftFormat` (`wrapIfStatementBodies` on `Leaderboard.swift:36-37`, `CollisionTests.swift:23-24,45-46,88-89`, `InputQueue.swift:10-11`, plus remaining inline `if` statements across `ios/` hidden past GitHub's 10-annotation cap).
+- **Fixes applied:**
+  - Wrapped every single-line `if ... { ... }` statement onto multi-line blocks (zero logic changes) across all 8 matching files in `ios/`: `Leaderboard.swift`, `InputQueue.swift`, `CollisionTests.swift`, `Types.swift`, `FloodFill.swift`, `BotSpawner.swift`, `BotNavigation.swift`, and `ArenaScene.swift`.
+  - Documented the exact CI-identical local `(cd ios && swiftformat --lint --config .swiftformat .)` command in `IOS_SETUP.md` so local and CI always read the single `ios/.swiftformat`.

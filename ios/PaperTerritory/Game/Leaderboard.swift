@@ -33,8 +33,12 @@ enum Leaderboard {
         }
 
         ranked.sort { lhs, rhs in
-            if lhs.1 != rhs.1 { return lhs.1 > rhs.1 }
-            if lhs.0.kills != rhs.0.kills { return lhs.0.kills > rhs.0.kills }
+            if lhs.1 != rhs.1 {
+                return lhs.1 > rhs.1
+            }
+            if lhs.0.kills != rhs.0.kills {
+                return lhs.0.kills > rhs.0.kills
+            }
             return lhs.0.id < rhs.0.id
         }
 

@@ -104,10 +104,18 @@ final class FloodFill {
             let gy = (packed >> 16) - 1
             let gx = (packed & 0xFFFF) - 1
 
-            if gx + 1 <= searchBox.maxX { tryEnqueue(gx + 1, gy) }
-            if gx - 1 >= searchBox.minX { tryEnqueue(gx - 1, gy) }
-            if gy + 1 <= searchBox.maxY { tryEnqueue(gx, gy + 1) }
-            if gy - 1 >= searchBox.minY { tryEnqueue(gx, gy - 1) }
+            if gx + 1 <= searchBox.maxX {
+                tryEnqueue(gx + 1, gy)
+            }
+            if gx - 1 >= searchBox.minX {
+                tryEnqueue(gx - 1, gy)
+            }
+            if gy + 1 <= searchBox.maxY {
+                tryEnqueue(gx, gy + 1)
+            }
+            if gy - 1 >= searchBox.minY {
+                tryEnqueue(gx, gy - 1)
+            }
         }
     }
 

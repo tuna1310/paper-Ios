@@ -84,15 +84,27 @@ struct GridRect: Equatable, Sendable {
     }
 
     mutating func include(gx: Int, gy: Int) {
-        if gx < minX { minX = gx }
-        if gx > maxX { maxX = gx }
-        if gy < minY { minY = gy }
-        if gy > maxY { maxY = gy }
+        if gx < minX {
+            minX = gx
+        }
+        if gx > maxX {
+            maxX = gx
+        }
+        if gy < minY {
+            minY = gy
+        }
+        if gy > maxY {
+            maxY = gy
+        }
     }
 
     func union(_ other: GridRect) -> GridRect {
-        if isEmpty { return other }
-        if other.isEmpty { return self }
+        if isEmpty {
+            return other
+        }
+        if other.isEmpty {
+            return self
+        }
         return GridRect(
             minX: min(minX, other.minX),
             minY: min(minY, other.minY),

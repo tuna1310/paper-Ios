@@ -7,7 +7,9 @@ struct InputQueue: Sendable {
     private var second: Direction?
 
     var count: Int {
-        if first == nil { return 0 }
+        if first == nil {
+            return 0
+        }
         return second == nil ? 1 : 2
     }
 
