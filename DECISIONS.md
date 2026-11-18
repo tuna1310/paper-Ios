@@ -43,5 +43,9 @@ This log documents architectural choices, reconciled requirements, formulas, and
 ## Decision 6: Localization Architecture (`Localizable.xcstrings`)
 - **Decision:** Store all user-facing strings in `ios/PaperTerritory/Resources/Localizable.xcstrings` (`sourceLanguage: "en"`) and resolve via `L10n` wrapper calling `String(localized:bundle:)`. Enforce via unit tests (`LocalizationTests`) that zero Vietnamese characters appear in any localized string or bot name.
 
+## Decision 7: SwiftFormat & SwiftLint Configuration Adjustments
+- **Decision:** Configure `ios/.swiftformat` with `--ranges nospace` and disable `numberFormatting`, `andOperator`, `sortedImports`, `redundantSelf`, `blankLinesAroundMark`; keep all SwiftLint safety rules (`force_cast: error`, `force_try: error`, `force_unwrapping: error`, `implicitly_unwrapped_optional`, `type_body_length: 350`) strictly active by decomposing `BotAI` into `BotNavigation` + `BotSpawner`.
+- **Rationale:** SwiftFormat 0.55+ defaults to spaced ranges (`0 ..< 6`), 4-digit hex grouping (breaking `0xFF_2A_6D` color readability), and rewriting `&&` inside conditions to `,`. Disabling those stylistic overrides prevents noisy format churn while keeping strict Swift safety checks intact.
+
 ## Performance Measurements Log
 - *Baseline (Simulator CI / Windows authoring environment):* Benchmarks for FloodFill, GridMap dirty updates, and 15-bot 10-second simulation runs are executed in `GameEngineTests` / `FloodFillTests` on `macos-latest` CI; physical iPhone 60/120 Hz frame-time telemetry (`FrameMetrics` via `CACurrentMediaTime()` + `os_signpost`) will be recorded here once profiled on hardware.

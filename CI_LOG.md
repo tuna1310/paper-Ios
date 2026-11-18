@@ -44,3 +44,19 @@ Tracks every GitHub Actions CI run (`macos-latest`, `.github/workflows/ios.yml`)
   1. Added full `simctl list runtimes` / `devices available` / installed Xcode / disk inventory logging (`artifacts/sim-inventory.txt` + Job Summary).
   2. In `Provision & Boot iOS Simulator` (now with `continue-on-error: true`), if no eligible iOS simulator or iOS runtime exists, execute `xcodebuild -downloadPlatform iOS`, create `"CI iPhone"` via `xcrun simctl create` if needed, boot it, and run `xcodebuild test -destination "id=<udid>"`.
   3. Kept `DeviceIPA`, `SwiftLint`, `SwiftFormat`, and `Summarize Errors & Emit Annotations` running on every pass so all error details surface together.
+
+---
+
+## Round 4 — Run #3 (`44269472092`, commit `aa38b51`) Full Audit & One-Pass Fixes
+
+- **Observed CI result (`macos-latest`, Xcode 26.6) via GitHub API + check-run annotations (`16` total):**
+  - `XcodeGen`, `Provision & Boot iOS Simulator` (`D26ED71E-9D97-4E79-B376-C104ABB9517A`), and `DeviceIPA` (`PaperTerritory-unsigned-ipa`, `440,831` bytes) succeeded.
+  - `XcodeTest` failed (exit `70`): `Could not find test host for PaperTerritoryTests: TEST_HOST evaluates to ".../Debug-iphonesimulator/PaperTerritory.app/PaperTerritoryTests"`, plus `WARNING: Using the first of multiple matching destinations:` for bare `-destination "id=..."`.
+  - `SwiftLint` failed (exit `2`, 3 errors): `BotAI.swift:5` (`type_body_length` 430 > 350), `BotAI.swift:235` (`for_where`), and `BotAI.swift:459` (`for_where`).
+  - `SwiftFormat` failed (exit `1`, 4+ reported errors): `FloodFillTests.swift:30` (`wrapLoopBodies`, `spaceAroundOperators`) and `LeaderboardTests.swift:8,22` (`spaceAroundOperators` caused by SwiftFormat 0.55+ default `--ranges spaced`).
+- **One-pass fixes applied (commits `365438e`, `773c034`, `e74baec`, plus docs/audit):**
+  1. **XcodeTest host & simulator destination (`365438e`, `773c034`):** Fixed `TEST_HOST` in `ios/project.yml` to `"$(BUILT_PRODUCTS_DIR)/PaperTerritory.app/PaperTerritory"` and updated `.github/workflows/ios.yml` to pass `-destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}"`.
+  2. **Untruncated CI reporting (`773c034`):** Removed `[:20]` / `[:15]` limits in Job Summary, added `xcrun xcresulttool get test-results summary` (cleaning stale `.xcresult` first), grouped SwiftLint violations by rule, and increased `::error::` annotation limit to `45`.
+  3. **Proactive compiler/concurrency/XCTest fixes (`365438e`):** Added explicit `import UIKit` in `DemoPlayView.swift`, marked `ArenaHUDState: Sendable` in `ArenaScene.swift`, and widened tight test grids in `CollisionTests.swift` (`60×60`) and `BotAITests.swift` respawn count check (`>= 25`).
+  4. **SwiftLint & SwiftFormat clean sweep (`e74baec`):** Split `BotNavigation.swift` and `BotSpawner.swift` out of `BotAI.swift`, replaced remaining `for_where` patterns across `BotAI.swift`/`FloodFill.swift`/`CollisionDetector.swift`, wrapped all 14 inline `for` loops in `FloodFillTests.swift` and `MovementAndInputTests.swift`, and added `--ranges nospace` to `ios/.swiftformat`.
+  5. **Full error ledger:** Documented all 13 identified items in `CI_ERRORS_FULL.md`.
