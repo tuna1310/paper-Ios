@@ -27,6 +27,7 @@ final class BotAI {
     var difficulty: BotDifficulty
     private var rng: SeededRandomGenerator
     private var brains: [UInt8: BrainState] = [:]
+    private let reachability = BotReachabilityAnalyzer()
 
     init(difficulty: BotDifficulty = .normal, seed: UInt64 = 0x5041_5045_5231) {
         self.difficulty = difficulty
@@ -177,7 +178,7 @@ final class BotAI {
     private func pickBestDirection(context: DecisionContext, brain: inout BrainState) -> Direction {
         let candidates = [context.bot.direction, context.preferredSide, context.otherSide]
         var bestDir = context.bot.direction
-        var bestScore = -1_000_000
+        var bestScore = -1_000_000_000
 
         for dir in candidates {
             let nx = context.origin.gx + dir.dx
@@ -187,9 +188,15 @@ final class BotAI {
             }
 
             let nextCell = GridPoint(gx: nx, gy: ny)
-            let score = scoreSafety(dir: dir, nextCell: nextCell, context: context)
+            let reach = reachability.evaluate(
+                from: nextCell,
+                blockedOrigin: context.origin,
+                bot: context.bot,
+                grid: context.grid
+            )
+            let score = scoreSafety(dir: dir, nextCell: nextCell, reach: reach, context: context)
                 + scoreCombat(nextCell: nextCell, context: context)
-                + scoreSteering(dir: dir, nextCell: nextCell, context: context)
+                + scoreSteering(dir: dir, nextCell: nextCell, reach: reach, context: context)
 
             if score > bestScore {
                 bestScore = score
@@ -197,7 +204,7 @@ final class BotAI {
             }
         }
 
-        if bestScore == -1_000_000 {
+        if bestScore == -1_000_000_000 {
             let origin = context.origin
             for dir in candidates where context.grid.isInsideBounds(gx: origin.gx + dir.dx, gy: origin.gy + dir.dy) {
                 return dir
@@ -210,42 +217,64 @@ final class BotAI {
         return bestDir
     }
 
-    private func scoreSafety(dir: Direction, nextCell: GridPoint, context: DecisionContext) -> Int {
+    private func scoreSafety(
+        dir: Direction,
+        nextCell: GridPoint,
+        reach: BotReachabilityResult,
+        context: DecisionContext
+    ) -> Int {
         let nextIsOwn = context.grid.owner(at: nextCell.gx, gy: nextCell.gy) == context.bot.id
-        var score = 0
-
-        if nextIsOwn {
-            score += (context.intent == .retreatHome) ? 1_500 : 0
-        } else {
-            let exits = countSafeExits(from: nextCell, heading: dir, bot: context.bot, grid: context.grid)
-            if exits == 0 {
-                score -= 20_000
-            } else if exits == 1 {
-                score -= 3_500
-            }
-
-            let pinchCount = countOtherTrailNeighbors(around: nextCell, excluding: context.origin, bot: context.bot)
-            if pinchCount >= 2 {
-                score -= 5_000
-            } else if pinchCount == 1 {
-                score -= 250
-            }
-
-            let depth = forwardCorridorDepth(
-                from: nextCell,
-                heading: dir,
-                maxSteps: 5,
-                bot: context.bot,
-                grid: context.grid
-            )
-            score += depth * 40
-        }
+        var score = nextIsOwn
+            ? ((context.intent == .retreatHome) ? 1_500 : 0)
+            : scoreCorridorRisk(dir: dir, nextCell: nextCell, reach: reach, context: context)
 
         if nextCell.gx <= 1 || nextCell.gx >= context.grid.width - 2 ||
             nextCell.gy <= 1 || nextCell.gy >= context.grid.height - 2 {
             score -= 120
         }
         return score
+    }
+
+    private func scoreCorridorRisk(
+        dir: Direction,
+        nextCell: GridPoint,
+        reach: BotReachabilityResult,
+        context: DecisionContext
+    ) -> Int {
+        var score = 0
+        if !reach.reachedHome && reach.openCells < BotReachabilityAnalyzer.defaultMaxNodes {
+            // Reject moves leading into sealed pockets bounded by the bot's own trail/walls.
+            score -= 100_000 - (reach.openCells * 100)
+        } else if !reach.reachedHome && context.intent == .retreatHome {
+            score -= 8_000
+        }
+
+        let exits = BotNavigation.countSafeExits(from: nextCell, heading: dir, bot: context.bot, grid: context.grid)
+        if exits == 0 {
+            score -= 20_000
+        } else if exits == 1 {
+            score -= 3_500
+        }
+
+        let pinchCount = BotNavigation.countOtherTrailNeighbors(
+            around: nextCell,
+            excluding: context.origin,
+            bot: context.bot
+        )
+        if pinchCount >= 2 {
+            score -= 5_000
+        } else if pinchCount == 1 {
+            score -= 250
+        }
+
+        let depth = BotNavigation.forwardCorridorDepth(
+            from: nextCell,
+            heading: dir,
+            maxSteps: 5,
+            bot: context.bot,
+            grid: context.grid
+        )
+        return score + depth * 40
     }
 
     private func scoreCombat(nextCell: GridPoint, context: DecisionContext) -> Int {
@@ -263,7 +292,16 @@ final class BotAI {
         return score
     }
 
-    private func scoreSteering(dir: Direction, nextCell: GridPoint, context: DecisionContext) -> Int {
+    private func scoreSteering(
+        dir: Direction,
+        nextCell: GridPoint,
+        reach: BotReachabilityResult,
+        context: DecisionContext
+    ) -> Int {
+        if context.intent == .retreatHome, reach.reachedHome, let steps = reach.stepsToHome {
+            return max(0, 48 - steps) * 260
+        }
+
         if let target = context.target {
             let curDist = abs(context.origin.gx - target.gx) + abs(context.origin.gy - target.gy)
             let nextDist = abs(nextCell.gx - target.gx) + abs(nextCell.gy - target.gy)
@@ -285,45 +323,5 @@ final class BotAI {
             score += 80
         }
         return score
-    }
-
-    private func countOtherTrailNeighbors(around cell: GridPoint, excluding origin: GridPoint, bot: Entity) -> Int {
-        var count = 0
-        for dir in Direction.allCases {
-            let nx = cell.gx + dir.dx
-            let ny = cell.gy + dir.dy
-            if nx == origin.gx && ny == origin.gy { continue }
-            if bot.trail.contains(gx: nx, gy: ny) { count += 1 }
-        }
-        return count
-    }
-
-    private func countSafeExits(from point: GridPoint, heading: Direction, bot: Entity, grid: GridMap) -> Int {
-        var exits = 0
-        for dir in [heading, heading.rotatedClockwise, heading.rotatedCounterClockwise] {
-            let cx = point.gx + dir.dx
-            let cy = point.gy + dir.dy
-            if grid.isInsideBounds(gx: cx, gy: cy) && !bot.trail.contains(gx: cx, gy: cy) { exits += 1 }
-        }
-        return exits
-    }
-
-    private func forwardCorridorDepth(
-        from point: GridPoint,
-        heading: Direction,
-        maxSteps: Int,
-        bot: Entity,
-        grid: GridMap
-    ) -> Int {
-        var depth = 0
-        var cx = point.gx
-        var cy = point.gy
-        for _ in 0..<maxSteps {
-            cx += heading.dx
-            cy += heading.dy
-            guard grid.isInsideBounds(gx: cx, gy: cy), !bot.trail.contains(gx: cx, gy: cy) else { break }
-            depth += 1
-        }
-        return depth
     }
 }

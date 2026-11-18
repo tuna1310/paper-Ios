@@ -73,9 +73,13 @@ final class Entity {
         let epsilon = 1e-7
         var iterations = 0
 
+        // Only apply a queued turn before the first step if the entity starts at rest on a cell center;
+        // subsequent cell-center transitions pop turns inside processEnteredCellCenter so one center
+        // can never execute two queued turns on the same tick.
+        applyQueuedTurnIfAtCenter(grid: grid, epsilon: epsilon)
+
         while remaining > 1e-9 && iterations < 256 {
             iterations += 1
-            applyQueuedTurnIfAtCenter(grid: grid, epsilon: epsilon)
 
             let coord = direction.dx != 0 ? posX : posY
             let sign = Double(direction.dx != 0 ? direction.dx : direction.dy)
