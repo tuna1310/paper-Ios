@@ -78,3 +78,16 @@ Tracks every GitHub Actions CI run (`macos-latest`, `.github/workflows/ios.yml`)
   2. **Part B (`ios/.swiftformat`, `.github/workflows/format-fix.yml`, `DECISIONS.md`, `CI_ERRORS_FULL.md`):**
      - Intentionally disabled `conditionalAssignment`, `nestedIf`, and `wrapPropertyBodies` in `ios/.swiftformat` (documented in `DECISIONS.md`), while keeping `wrapIfStatementBodies` and `redundantReturn` enabled.
      - Added `workflow_dispatch` workflow `.github/workflows/format-fix.yml` (`macos-latest`, `contents: write`) to run SwiftFormat in edit mode with `ios/.swiftformat`, upload `swiftformat.diff` artifact, commit `style: apply swiftformat` if changed, and push to the active branch.
+
+---
+
+## Round 6 — Separate `build-ipa` Job, Pinned `Xcode 16.4` (`macos-15`), & `/docs/`
+
+- **Observed state (`Run #5`, `44315846470`, commit `e2dca4b`):**
+  - Run `#5` was manually canceled (`cancelled`, 0 artifacts). Meanwhile, Runs `#1`–`#4` revealed why IPA delivery was unreliable: Run `#2` skipped IPA generation when Simulator selection failed inside a single monolithic job on unpinned `macos-latest` (`Xcode 26.6`), and failed lint/test gates turned the whole run red.
+- **Changes applied:**
+  1. **Created [`docs/CI_ERRORS.md`](docs/CI_ERRORS.md):** Documented real API-verified root causes for Runs `#1`–`#5` and diagnostic commands.
+  2. **Redesigned [`.github/workflows/ios.yml`](.github/workflows/ios.yml):**
+     - Split into two independent parallel jobs (`build-ipa` and `test-and-lint`) on `macos-15` with pinned `/Applications/Xcode_16.4.app/Contents/Developer` (`iOS 18.5` SDK & preinstalled Simulator runtimes).
+     - `build-ipa` cannot be blocked by SwiftFormat, SwiftLint, Simulator, or XCTest; builds `Release` (`-sdk iphoneos`, `-destination "generic/platform=iOS"`, `CODE_SIGNING_ALLOWED=NO`, `CODE_SIGNING_REQUIRED=NO`), packages `Payload/PaperTerritory.app` into `artifacts/PaperTerritory-unsigned.ipa`, logs the exact IPA path and byte size, and uploads artifact `paperio-unsigned-ipa` (`if-no-files-found: error`, `retention-days: 14`).
+  3. **Created [`docs/INSTALL_IPA.md`](docs/INSTALL_IPA.md)** (and aligned `IOS_SETUP.md`): Concise Sideloadly & AltStore installation instructions for `paperio-unsigned-ipa`.

@@ -65,13 +65,13 @@ Always measure performance on a physical device using **Release** configuration 
 
 ---
 
-## 6. Installing on iPhone from Windows (via CI `.ipa` + Sideloadly)
+## 6. Installing on iPhone from Windows (via CI `.ipa` + Sideloadly / AltStore)
 
-Because Windows cannot compile iOS binaries locally, `.github/workflows/ios.yml` automatically builds an unsigned `arm64` device package on `macos-latest` (`PaperTerritory-unsigned.ipa`):
+Because Windows cannot compile iOS binaries locally, `.github/workflows/ios.yml` builds an unsigned `arm64` device package in a dedicated `build-ipa` job on `macos-15` (`Xcode 16.4`). See [docs/INSTALL_IPA.md](docs/INSTALL_IPA.md) for full Sideloadly and AltStore steps, or summary:
 
-1. Push your branch (`.\tools\push.ps1`) and wait for **iOS CI** on GitHub Actions to finish green.
-2. Open the workflow run → **Artifacts** → download **`PaperTerritory-unsigned-ipa`** and unzip `PaperTerritory-unsigned.ipa`.
+1. Push your branch (`.\tools\push.ps1`) and wait for **iOS CI** (`Build Unsigned IPA (iOS)`) on GitHub Actions to finish.
+2. Open the workflow run → **Artifacts** → download **`paperio-unsigned-ipa`** and unzip `PaperTerritory-unsigned.ipa`.
 3. Plug your iPhone into Windows via USB (trust the computer on iPhone; enable **Settings → Privacy & Security → Developer Mode** on iOS 16+).
-4. Open **Sideloadly**, drag `PaperTerritory-unsigned.ipa` in, sign with your Apple ID, and click **Start**.
+4. Open **Sideloadly** (or **AltStore**), sign `PaperTerritory-unsigned.ipa` with your Apple ID, and install.
 5. On iPhone: **Settings → General → VPN & Device Management** → trust your developer certificate, then launch **Paper Territory**.
 

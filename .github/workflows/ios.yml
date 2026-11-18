@@ -12,17 +12,104 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-test-lint:
-    name: Build, Test & Unsigned IPA (iOS)
-    runs-on: macos-latest
-    timeout-minutes: 35
+  build-ipa:
+    name: Build Unsigned IPA (iOS)
+    runs-on: macos-15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Show Xcode & Swift environment
+      - name: Pin Xcode 16.4 and show toolchain
         run: |
+          XCODE_DEV="/Applications/Xcode_16.4.app/Contents/Developer"
+          if [ ! -d "$XCODE_DEV" ]; then
+            echo "ERROR: Expected pinned Xcode not found at $XCODE_DEV"
+            ls -d /Applications/Xcode*.app || true
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_DEV"
+          xcodebuild -version
+          swift --version
+
+      - name: Install XcodeGen
+        run: |
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+          xcodegen --version
+
+      - name: Generate Xcode project via XcodeGen
+        run: |
+          (cd ios && xcodegen generate)
+
+      - name: Build app for generic iOS device (unsigned)
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          xcodebuild build \
+            -project ios/PaperTerritory.xcodeproj \
+            -scheme PaperTerritory \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath ios/DerivedDataDevice \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            2>&1 | tee artifacts/xcodebuild-device.log
+
+      - name: Package .app into unsigned IPA
+        run: |
+          APP_PATH="ios/DerivedDataDevice/Build/Products/Release-iphoneos/PaperTerritory.app"
+          IPA_PATH="$(pwd)/artifacts/PaperTerritory-unsigned.ipa"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: PaperTerritory.app not found at $APP_PATH"
+            exit 1
+          fi
+          mkdir -p artifacts/ipa_stage/Payload
+          cp -R "$APP_PATH" artifacts/ipa_stage/Payload/
+          (cd artifacts/ipa_stage && zip -qry "$IPA_PATH" Payload)
+          rm -rf artifacts/ipa_stage
+
+      - name: Print IPA path and size
+        run: |
+          IPA_PATH="$(pwd)/artifacts/PaperTerritory-unsigned.ipa"
+          if [ ! -f "$IPA_PATH" ]; then
+            echo "ERROR: IPA not found at $IPA_PATH"
+            exit 1
+          fi
+          echo "IPA path: $IPA_PATH"
+          echo "IPA size (bytes): $(wc -c < "$IPA_PATH" | tr -d ' ')"
+          ls -lh "$IPA_PATH"
+
+      - name: Upload Unsigned IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: paperio-unsigned-ipa
+          path: artifacts/PaperTerritory-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
+
+  test-and-lint:
+    name: Test & Lint (iOS Simulator)
+    runs-on: macos-15
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pin Xcode 16.4 and inspect Simulator inventory
+        run: |
+          XCODE_DEV="/Applications/Xcode_16.4.app/Contents/Developer"
+          if [ ! -d "$XCODE_DEV" ]; then
+            echo "ERROR: Expected pinned Xcode not found at $XCODE_DEV"
+            ls -d /Applications/Xcode*.app || true
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_DEV"
           xcodebuild -version
           swift --version
           mkdir -p artifacts
@@ -142,11 +229,6 @@ jobs:
           print(f"Chosen simulator: {chosen[2]} (iOS {chosen[1]}) -> {udid}", flush=True)
           run(["xcrun", "simctl", "boot", udid], check=False)
           run(["xcrun", "simctl", "bootstatus", udid, "-b"], check=False)
-          with open("artifacts/sim-inventory.txt", "a") as inv:
-              inv.write("\n=== Post-Provision Runtimes ===\n")
-              inv.write(run(["xcrun", "simctl", "list", "runtimes"], check=False))
-              inv.write("\n=== Post-Provision Available Devices ===\n")
-              inv.write(run(["xcrun", "simctl", "list", "devices", "available"], check=False))
           with open(os.environ["GITHUB_OUTPUT"], "a") as out:
               out.write(f"udid={udid}\n")
           PY
@@ -165,36 +247,6 @@ jobs:
             -derivedDataPath ios/DerivedData \
             -resultBundlePath artifacts/TestResults.xcresult \
             2>&1 | tee artifacts/xcodebuild.log
-
-      - name: Build Unsigned Device IPA (Sideloadly / AltStore)
-        id: ipa
-        if: steps.gen.outcome == 'success'
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          xcodebuild build \
-            -project ios/PaperTerritory.xcodeproj \
-            -scheme PaperTerritory \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination "generic/platform=iOS" \
-            -derivedDataPath ios/DerivedDataDevice \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee artifacts/xcodebuild-device.log
-
-          APP_PATH="ios/DerivedDataDevice/Build/Products/Release-iphoneos/PaperTerritory.app"
-          if [ -d "$APP_PATH" ]; then
-            mkdir -p artifacts/ipa_stage/Payload
-            cp -R "$APP_PATH" artifacts/ipa_stage/Payload/
-            (cd artifacts/ipa_stage && zip -qry ../PaperTerritory-unsigned.ipa Payload)
-            rm -rf artifacts/ipa_stage
-            ls -lh artifacts/PaperTerritory-unsigned.ipa
-          else
-            echo "PaperTerritory.app not found at $APP_PATH"
-            exit 1
-          fi
 
       - name: Run SwiftLint
         id: lint
@@ -230,11 +282,10 @@ jobs:
               annotations_emitted += 1
 
           summary = [
-              "## iOS CI Results",
+              "## iOS Test & Lint Results (Xcode 16.4)",
               f"- XcodeGen: {os.environ.get('GEN_OUTCOME')}",
               f"- Simulator Provision: {os.environ.get('SIM_OUTCOME')}",
               f"- Simulator Build & Test: {os.environ.get('TEST_OUTCOME')}",
-              f"- Unsigned Device IPA: {os.environ.get('IPA_OUTCOME')}",
               f"- SwiftLint: {os.environ.get('LINT_OUTCOME')}",
               f"- SwiftFormat: {os.environ.get('FORMAT_OUTCOME')}",
               ""
@@ -245,11 +296,6 @@ jobs:
               summary.append("```")
               summary.append(open("artifacts/xcresult-summary.txt", errors="replace").read().strip())
               summary.append("```\n")
-
-          if os.path.exists("artifacts/sim-inventory.txt"):
-              summary.append("<details><summary>Simulator & Runtime Inventory</summary>\n\n```")
-              summary.append(open("artifacts/sim-inventory.txt", errors="replace").read().strip())
-              summary.append("```\n</details>\n")
 
           if os.path.exists("artifacts/swiftformat.log"):
               fmt_lines = [
@@ -288,7 +334,6 @@ jobs:
               ("XcodeGen", os.environ.get("GEN_OUTCOME"), "artifacts/xcodegen.log"),
               ("Simulator", os.environ.get("SIM_OUTCOME"), "artifacts/sim-select.log"),
               ("XcodeTest", os.environ.get("TEST_OUTCOME"), "artifacts/xcodebuild.log"),
-              ("DeviceIPA", os.environ.get("IPA_OUTCOME"), "artifacts/xcodebuild-device.log"),
           ]:
               if not os.path.exists(path):
                   continue
@@ -314,17 +359,8 @@ jobs:
           GEN_OUTCOME: ${{ steps.gen.outcome }}
           SIM_OUTCOME: ${{ steps.sim.outcome }}
           TEST_OUTCOME: ${{ steps.test.outcome }}
-          IPA_OUTCOME: ${{ steps.ipa.outcome }}
           LINT_OUTCOME: ${{ steps.lint.outcome }}
           FORMAT_OUTCOME: ${{ steps.format.outcome }}
-
-      - name: Upload Unsigned IPA for iPhone Testing
-        if: steps.ipa.outcome == 'success'
-        uses: actions/upload-artifact@v4
-        with:
-          name: PaperTerritory-unsigned-ipa
-          path: artifacts/PaperTerritory-unsigned.ipa
-          retention-days: 14
 
       - name: Upload CI logs and test results
         if: always()
@@ -337,15 +373,14 @@ jobs:
             artifacts/TestResults.xcresult
           retention-days: 14
 
-      - name: Enforce All CI Gates
+      - name: Enforce Test & Lint Gates
         if: always()
         run: |
           if [ "${{ steps.gen.outcome }}" != "success" ] || \
              [ "${{ steps.sim.outcome }}" != "success" ] || \
              [ "${{ steps.test.outcome }}" != "success" ] || \
-             [ "${{ steps.ipa.outcome }}" != "success" ] || \
              [ "${{ steps.lint.outcome }}" != "success" ] || \
              [ "${{ steps.format.outcome }}" != "success" ]; then
-            echo "One or more CI checks failed. See Summarize Full Errors step above."
+            echo "One or more Test/Lint checks failed. Note: Unsigned IPA job runs independently."
             exit 1
           fi
