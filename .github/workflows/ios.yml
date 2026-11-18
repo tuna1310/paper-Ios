@@ -157,10 +157,11 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
+          rm -rf artifacts/TestResults.xcresult
           xcodebuild test \
             -project ios/PaperTerritory.xcodeproj \
             -scheme PaperTerritory \
-            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath ios/DerivedData \
             -resultBundlePath artifacts/TestResults.xcresult \
             2>&1 | tee artifacts/xcodebuild.log
@@ -209,18 +210,24 @@ jobs:
           set -o pipefail
           (cd ios && swiftformat --lint --config .swiftformat .) 2>&1 | tee artifacts/swiftformat.log
 
-      - name: Summarize Errors & Emit Annotations
+      - name: Summarize Full Errors & Emit Annotations
         if: always()
         run: |
+          if [ -d artifacts/TestResults.xcresult ]; then
+            xcrun xcresulttool get test-results summary --path artifacts/TestResults.xcresult > artifacts/xcresult-summary.txt 2>&1 || true
+          fi
           python3 - << 'PY'
-          import os, re
+          import collections, os, re
 
-          def emit(title, lines):
-              print(f"\n=== {title} ===")
-              for ln in lines[:15]:
-                  clean = ln.replace("%", "%25").replace("\r", "").strip()
-                  print(clean)
-                  print(f"::error title={title}::{clean[:240]}")
+          annotations_emitted = 0
+
+          def emit_annotation(title, msg):
+              global annotations_emitted
+              if annotations_emitted >= 45:
+                  return
+              clean = msg.replace("%", "%25").replace("\r", "").strip()
+              print(f"::error title={title}::{clean[:240]}")
+              annotations_emitted += 1
 
           summary = [
               "## iOS CI Results",
@@ -233,33 +240,72 @@ jobs:
               ""
           ]
 
+          if os.path.exists("artifacts/xcresult-summary.txt"):
+              summary.append("### Test Results Summary (`xcresulttool`)")
+              summary.append("```")
+              summary.append(open("artifacts/xcresult-summary.txt", errors="replace").read().strip())
+              summary.append("```\n")
+
           if os.path.exists("artifacts/sim-inventory.txt"):
               summary.append("<details><summary>Simulator & Runtime Inventory</summary>\n\n```")
-              summary.append(open("artifacts/sim-inventory.txt", errors="replace").read()[:4000])
+              summary.append(open("artifacts/sim-inventory.txt", errors="replace").read().strip())
               summary.append("```\n</details>\n")
 
-          checks = [
-              ("XcodeGen", os.environ.get("GEN_OUTCOME"), "artifacts/xcodegen.log", None),
-              ("Simulator", os.environ.get("SIM_OUTCOME"), "artifacts/sim-select.log", None),
-              ("XcodeTest", os.environ.get("TEST_OUTCOME"), "artifacts/xcodebuild.log", r"(error:|fatal error:|failed|TEST FAILED|Destination)"),
-              ("DeviceIPA", os.environ.get("IPA_OUTCOME"), "artifacts/xcodebuild-device.log", r"(error:|fatal error:|failed)"),
-              ("SwiftLint", os.environ.get("LINT_OUTCOME"), "artifacts/swiftlint.log", r"(warning:|error:)"),
-              ("SwiftFormat", os.environ.get("FORMAT_OUTCOME"), "artifacts/swiftformat.log", r"(\.swift|error:|warning:)")
-          ]
+          if os.path.exists("artifacts/swiftformat.log"):
+              fmt_lines = [
+                  l.rstrip() for l in open("artifacts/swiftformat.log", errors="replace")
+                  if ".swift" in l or "error:" in l.lower()
+              ]
+              if fmt_lines or os.environ.get("FORMAT_OUTCOME") != "success":
+                  summary.append(f"### SwiftFormat ({len(fmt_lines)} lines)")
+                  summary.append("```")
+                  summary.extend(fmt_lines or ["(see artifacts/swiftformat.log)"])
+                  summary.append("```\n")
+                  for l in fmt_lines:
+                      emit_annotation("SwiftFormat", l)
 
-          for title, outcome, path, pattern in checks:
-              if outcome != "success" and os.path.exists(path):
-                  all_lines = [l.rstrip() for l in open(path, errors="replace") if l.strip()]
-                  if pattern:
-                      matched = [l for l in all_lines if re.search(pattern, l, re.I)]
-                      picked = matched[:20] if matched else all_lines[-20:]
-                  else:
-                      picked = all_lines[-20:]
-                  emit(title, picked)
-                  summary.append(f"### {title} ({outcome})")
+          if os.path.exists("artifacts/swiftlint.log"):
+              lint_lines = [
+                  l.rstrip() for l in open("artifacts/swiftlint.log", errors="replace")
+                  if re.search(r"(warning:|error:)", l)
+              ]
+              rule_counts = collections.Counter()
+              for l in lint_lines:
+                  m = re.search(r"\(([a-z0-9_]+)\)\s*$", l)
+                  if m:
+                      rule_counts[m.group(1)] += 1
+              if lint_lines or os.environ.get("LINT_OUTCOME") != "success":
+                  summary.append(f"### SwiftLint ({len(lint_lines)} findings)")
+                  if rule_counts:
+                      summary.append("Grouped by rule: " + ", ".join(f"`{k}`: {v}" for k, v in rule_counts.most_common()))
                   summary.append("```")
-                  summary.extend(picked[:20])
+                  summary.extend(lint_lines or ["(see artifacts/swiftlint.log)"])
+                  summary.append("```\n")
+                  for l in lint_lines:
+                      emit_annotation("SwiftLint", l)
+
+          for title, outcome, path in [
+              ("XcodeGen", os.environ.get("GEN_OUTCOME"), "artifacts/xcodegen.log"),
+              ("Simulator", os.environ.get("SIM_OUTCOME"), "artifacts/sim-select.log"),
+              ("XcodeTest", os.environ.get("TEST_OUTCOME"), "artifacts/xcodebuild.log"),
+              ("DeviceIPA", os.environ.get("IPA_OUTCOME"), "artifacts/xcodebuild-device.log"),
+          ]:
+              if not os.path.exists(path):
+                  continue
+              all_lines = [l.rstrip() for l in open(path, errors="replace") if l.strip()]
+              diag = [
+                  l for l in all_lines
+                  if re.search(r"(error:|fatal error:|warning:|Test Case .* failed|\*\* TEST FAILED \*\*|BUILD FAILED)", l)
+              ]
+              if outcome != "success" or diag:
+                  picked = diag if diag else all_lines[-40:]
+                  summary.append(f"### {title} ({outcome}, {len(picked)} diagnostic lines)")
                   summary.append("```")
+                  summary.extend(picked)
+                  summary.append("```\n")
+                  if outcome != "success":
+                      for l in picked:
+                          emit_annotation(title, l)
 
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
               f.write("\n".join(summary) + "\n")
@@ -300,6 +346,6 @@ jobs:
              [ "${{ steps.ipa.outcome }}" != "success" ] || \
              [ "${{ steps.lint.outcome }}" != "success" ] || \
              [ "${{ steps.format.outcome }}" != "success" ]; then
-            echo "One or more CI checks failed. See Summarize Errors step above."
+            echo "One or more CI checks failed. See Summarize Full Errors step above."
             exit 1
           fi
