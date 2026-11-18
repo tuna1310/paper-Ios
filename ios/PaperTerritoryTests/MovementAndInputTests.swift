@@ -1,5 +1,5 @@
-@testable import PaperTerritory
 import XCTest
+@testable import PaperTerritory
 
 final class MovementAndInputTests: XCTestCase {
     func testInputQueueRejects180DegreeReversalAndCapsAtTwoCommands() {
@@ -22,16 +22,12 @@ final class MovementAndInputTests: XCTestCase {
     func testEntityExecutesBufferedTwoStepCornerAtCellCenters() {
         let grid = GridMap()
         grid.initStarterTerritory(ownerId: 1, centerX: 60, centerY: 60)
-        let palette = SkinPalette.playerDefault
         let entity = Entity(
             id: 1,
             name: "You",
             isBot: false,
-            colorHex: palette.baseHex,
-            darkColorHex: palette.darkHex,
-            trailColorHex: palette.trailHex,
-            spawnCellX: 60,
-            spawnCellY: 60,
+            palette: SkinPalette.playerDefault,
+            spawn: GridPoint(gx: 60, gy: 60),
             initialDirection: .right
         )
 
@@ -41,7 +37,6 @@ final class MovementAndInputTests: XCTestCase {
         XCTAssertTrue(entity.enqueueTurn(.up))
         XCTAssertTrue(entity.enqueueTurn(.left))
 
-        // Reach (61.5, 60.5) -> turn up -> reach (61.5, 61.5) -> turn left
         _ = entity.advance(by: 1.75, grid: grid, edgeRule: .die)
         XCTAssertEqual(entity.direction, .left)
         XCTAssertEqual(entity.posX, 61.5, accuracy: 1e-5)
@@ -50,11 +45,9 @@ final class MovementAndInputTests: XCTestCase {
 
     func testEntityRecordsTrailOutsideOwnTerritoryAndClosesLoop() {
         let engine = GameEngine()
-        // Base is (58...62, 58...62). Player starts at (60.5, 60.5) heading right.
         for _ in 0..<25 { engine.tick() }
         XCTAssertFalse(engine.player.trail.isEmpty)
 
-        // Turn up for 10 ticks (to y ~ 62.0), then left back into base at x=62, y=62
         engine.enqueuePlayerTurn(.up)
         for _ in 0..<10 { engine.tick() }
         engine.enqueuePlayerTurn(.left)
@@ -68,16 +61,12 @@ final class MovementAndInputTests: XCTestCase {
     func testEdgeRuleBlockStopsEntityWithoutKilling() {
         let grid = GridMap()
         grid.initStarterTerritory(ownerId: 1, centerX: 117, centerY: 60)
-        let palette = SkinPalette.playerDefault
         let entity = Entity(
             id: 1,
             name: "You",
             isBot: false,
-            colorHex: palette.baseHex,
-            darkColorHex: palette.darkHex,
-            trailColorHex: palette.trailHex,
-            spawnCellX: 118,
-            spawnCellY: 60,
+            palette: SkinPalette.playerDefault,
+            spawn: GridPoint(gx: 118, gy: 60),
             initialDirection: .right
         )
 
@@ -89,16 +78,12 @@ final class MovementAndInputTests: XCTestCase {
     func testEdgeRuleDieFlagsBoundaryCollision() {
         let grid = GridMap()
         grid.initStarterTerritory(ownerId: 1, centerX: 117, centerY: 60)
-        let palette = SkinPalette.playerDefault
         let entity = Entity(
             id: 1,
             name: "You",
             isBot: false,
-            colorHex: palette.baseHex,
-            darkColorHex: palette.darkHex,
-            trailColorHex: palette.trailHex,
-            spawnCellX: 118,
-            spawnCellY: 60,
+            palette: SkinPalette.playerDefault,
+            spawn: GridPoint(gx: 118, gy: 60),
             initialDirection: .right
         )
 

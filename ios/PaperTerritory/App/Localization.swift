@@ -22,6 +22,22 @@ enum L10n {
         String(localized: "hud_restart_button", bundle: .main)
     }
 
+    static var pausedTitle: String {
+        String(localized: "hud_paused_title", bundle: .main)
+    }
+
+    static var resumeButton: String {
+        String(localized: "hud_resume_button", bundle: .main)
+    }
+
+    static var killsLabel: String {
+        String(localized: "hud_kills_label", bundle: .main)
+    }
+
+    static var bestLabel: String {
+        String(localized: "hud_best_label", bundle: .main)
+    }
+
     static var gameOverTitle: String {
         String(localized: "match_game_over_title", bundle: .main)
     }

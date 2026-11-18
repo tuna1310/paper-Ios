@@ -10,6 +10,25 @@ enum GameConfig {
     static let starterRadiusCells: Int = 2 // 5x5 cells ((2*2+1)^2 = 25)
     static let neutralOwnerId: UInt8 = 0
     static let humanPlayerId: UInt8 = 1
+    static let victoryPercentage: Double = 100.0
+
+    // MARK: - Bots
+    static let minBotCount: Int = 10
+    static let defaultBotCount: Int = 12
+    static let maxBotCount: Int = 15
+    static let botRespawnDelayMinSeconds: Double = 2.0
+    static let botRespawnDelayMaxSeconds: Double = 3.0
+    static let botDefaultRespawnDelaySeconds: Double = 2.5
+    static let botSpawnBorderMarginCells: Int = 8
+    static let botSpawnMinClearanceCells: Int = 6
+
+    static let botNames: [String] = [
+        "Nova", "Dash", "Pixel", "Blaze", "Luna",
+        "Milo", "Koda", "Zara", "Echo", "Finn",
+        "Ruby", "Bolt", "Skye", "Juno", "Atlas",
+        "Vega", "Piper", "Orion", "Hazel", "Rex",
+        "Cleo", "Toby", "Iris", "Zane"
+    ]
 
     // MARK: - Movement & Turn Buffer
     static let turnQueueCapacity: Int = 2
@@ -24,6 +43,8 @@ enum GameConfig {
     // MARK: - Rendering & Pooling
     static let territoryPixelsPerCell: Int = 2
     static let pooledTrailNodesPerEntity: Int = 600
+    static let leaderboardTopCount: Int = 5
+    static let hudPublishIntervalSeconds: Double = 0.1
     static let cameraLerpFactor: CGFloat = 0.16
     static let defaultVisibleWidthCells: CGFloat = 22.0
     static let minCameraZoomOut: CGFloat = 0.72

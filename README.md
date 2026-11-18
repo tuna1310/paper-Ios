@@ -15,11 +15,12 @@
 │   ├── .swiftformat             # Formatting rules aligned with SwiftLint
 │   ├── PaperTerritory/
 │   │   ├── App/                 # App entry point, ContentView, L10n wrapper
-│   │   ├── Core/                # GameConfig, InputQueue, CameraController, FrameMetrics
-│   │   ├── Game/                # GridMap (120x120), FloodFill, Trail, Entity, GameEngine
+│   │   ├── Core/                # GameConfig, InputQueue, CameraController, FrameMetrics, SeededRandomGenerator
+│   │   ├── Game/                # GridMap (120x120), FloodFill, Trail, Entity, CollisionDetector, BotAI, Leaderboard, GameEngine
 │   │   ├── Rendering/           # TerritoryTextureRenderer (dirty-rect UInt32 -> SKTexture), ArenaScene
 │   │   ├── Skins/               # Deterministic palette module
-│   │   ├── UI/                  # SwiftUI demo match view
+│   │   ├── Data/                # MatchSettings & rule configurations
+│   │   ├── UI/                  # SwiftUI HUD & playable match views
 │   │   └── Resources/           # Localizable.xcstrings (English), Info.plist, Assets.xcassets
 │   └── PaperTerritoryTests/     # XCTest suite ported & extended from web logic tests
 ├── UI_NOTES.md                  # Visual audit & layout tokens from reference captures
@@ -29,6 +30,16 @@
 ├── CHANGELOG.md                 # Milestone history
 └── IDEAS.md                     # Future roadmap ideas
 ```
+
+---
+
+## Key Features (Steps 1–2)
+
+- **120×120 Grid & Exterior BFS Flood Fill:** Zero-allocation `[UInt8]` grid, `5×5` starter territories, virtual perimeter flood fill with anti-overflow guarantee and rival-territory enclosure capture.
+- **Responsive 4-Way Movement & Turn Buffer:** Max-2 command `InputQueue` blocking 180° U-turns, snapping cleanly at cell centers via direct `SKScene` touch swipes and keyboard arrows/WASD.
+- **Deterministic Collision Rules & 5 States:** Self-trail, enemy trail cut (clears victim territory to neutral), configurable `EdgeRule` (`die` vs `block`), configurable `HeadOnRule` (`largerTerritoryWins` vs `bothDie`), starvation, and 100% victory.
+- **12 Autonomous Bots (`10–15` configurable):** `Easy` / `Normal` / `Hard` tiers with short-arc expansion, exposed trail hunting, dead-end & self-trail avoidance, panic retreat, and `2.0–3.0s` empty-area respawns.
+- **Zero-Allocation Render Loop:** Single `SKScene.update` fixed `1/60s` loop, dirty-rect `SKMutableTexture` territory rendering, and pooled `SKSpriteNode` trails/entities.
 
 ---
 

@@ -1,5 +1,5 @@
-@testable import PaperTerritory
 import XCTest
+@testable import PaperTerritory
 
 final class FloodFillTests: XCTestCase {
     private var grid = GridMap()
@@ -8,11 +8,8 @@ final class FloodFillTests: XCTestCase {
         id: 1,
         name: "You",
         isBot: false,
-        colorHex: SkinPalette.playerDefault.baseHex,
-        darkColorHex: SkinPalette.playerDefault.darkHex,
-        trailColorHex: SkinPalette.playerDefault.trailHex,
-        spawnCellX: 60,
-        spawnCellY: 60
+        palette: SkinPalette.playerDefault,
+        spawn: GridPoint(gx: 60, gy: 60)
     )
 
     override func setUp() {
@@ -23,17 +20,13 @@ final class FloodFillTests: XCTestCase {
             id: 1,
             name: "You",
             isBot: false,
-            colorHex: SkinPalette.playerDefault.baseHex,
-            darkColorHex: SkinPalette.playerDefault.darkHex,
-            trailColorHex: SkinPalette.playerDefault.trailHex,
-            spawnCellX: 60,
-            spawnCellY: 60
+            palette: SkinPalette.playerDefault,
+            spawn: GridPoint(gx: 60, gy: 60)
         )
         grid.initStarterTerritory(ownerId: 1, centerX: 60, centerY: 60)
     }
 
     func testCapturesEnclosedNeutralTerritory() {
-        // Starter base covers (58...62, 58...62). Draw rectangular loop out to (66, 60)->(66, 66)->(60, 66)->(60, 63)
         for gx in 63...66 { player.trail.append(gx: gx, gy: 60) }
         for gy in 61...66 { player.trail.append(gx: 66, gy: gy) }
         for gx in stride(from: 65, through: 60, by: -1) { player.trail.append(gx: gx, gy: 66) }
@@ -65,7 +58,6 @@ final class FloodFillTests: XCTestCase {
     }
 
     func testOpenLoopDoesNotOverflowIntoExterior() {
-        // Leave a 1-cell gap at (60, 63) so the loop is NOT sealed against starter base
         for gx in 63...66 { player.trail.append(gx: gx, gy: 60) }
         for gy in 61...66 { player.trail.append(gx: 66, gy: gy) }
         for gx in stride(from: 65, through: 60, by: -1) { player.trail.append(gx: gx, gy: 66) }
@@ -76,7 +68,6 @@ final class FloodFillTests: XCTestCase {
         let trailLength = player.trail.count
         let result = floodFill.closeLoopAndCapture(grid: grid, entity: player)
 
-        // Only trail cells themselves should be stamped; interior cell (64, 64) must remain neutral
         XCTAssertEqual(result.capturedCellCount, trailLength)
         XCTAssertEqual(grid.countCells(for: 1), countBefore + trailLength)
         XCTAssertEqual(grid.owner(at: 64, gy: 64), GameConfig.neutralOwnerId)

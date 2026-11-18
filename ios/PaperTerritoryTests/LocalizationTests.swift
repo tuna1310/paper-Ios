@@ -1,14 +1,18 @@
-@testable import PaperTerritory
 import XCTest
+@testable import PaperTerritory
 
 final class LocalizationTests: XCTestCase {
-    func testAllGameStringsAreEnglishAndNonEmpty() {
-        let strings = [
+    func testAllGameStringsAndBotNamesAreEnglishAndNonEmpty() {
+        var strings = [
             L10n.appTitle,
             L10n.demoControlsHint,
             L10n.leaderboardTitle,
             L10n.playerDefaultName,
             L10n.restartButton,
+            L10n.pausedTitle,
+            L10n.resumeButton,
+            L10n.killsLabel,
+            L10n.bestLabel,
             L10n.gameOverTitle,
             L10n.victoryTitle,
             L10n.playAgainButton,
@@ -22,6 +26,7 @@ final class LocalizationTests: XCTestCase {
             L10n.percentageText(12.5),
             L10n.killsText(3)
         ]
+        strings.append(contentsOf: GameConfig.botNames)
 
         let forbiddenChars = CharacterSet(
             charactersIn: "ăâđêôơưĂÂĐÊÔƠƯáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ"
@@ -31,7 +36,7 @@ final class LocalizationTests: XCTestCase {
             XCTAssertFalse(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             XCTAssertNil(
                 value.rangeOfCharacter(from: forbiddenChars),
-                "Found non-English Vietnamese character in localized string: \(value)"
+                "Found non-English Vietnamese character in string: \(value)"
             )
         }
         XCTAssertEqual(L10n.appTitle, "Paper Territory")

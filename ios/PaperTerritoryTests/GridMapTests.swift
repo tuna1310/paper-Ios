@@ -1,5 +1,5 @@
-@testable import PaperTerritory
 import XCTest
+@testable import PaperTerritory
 
 final class GridMapTests: XCTestCase {
     func testInitializes120By120NeutralGrid() {

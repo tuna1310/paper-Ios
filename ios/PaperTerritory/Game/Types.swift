@@ -32,6 +32,24 @@ enum Direction: UInt8, CaseIterable, Sendable {
         }
     }
 
+    var rotatedClockwise: Direction {
+        switch self {
+        case .up: return .right
+        case .right: return .down
+        case .down: return .left
+        case .left: return .up
+        }
+    }
+
+    var rotatedCounterClockwise: Direction {
+        switch self {
+        case .up: return .left
+        case .left: return .down
+        case .down: return .right
+        case .right: return .up
+        }
+    }
+
     var angleRadians: Double {
         switch self {
         case .right: return 0
@@ -98,6 +116,62 @@ struct GridRect: Equatable, Sendable {
 enum EdgeRule: String, Codable, CaseIterable, Sendable {
     case die
     case block
+}
+
+/// Behavior when two entity heads collide on the same cell or swap positions.
+enum HeadOnRule: String, Codable, CaseIterable, Sendable {
+    case largerTerritoryWins
+    case bothDie
+}
+
+/// Bot intelligence and aggression tier.
+enum BotDifficulty: String, Codable, CaseIterable, Sendable {
+    case easy
+    case normal
+    case hard
+}
+
+/// Specific cause of an entity's elimination.
+enum DeathReason: Equatable, Sendable {
+    case selfTrail
+    case enemyTrail(killerName: String)
+    case boundary
+    case headOnLoss(killerName: String)
+    case headOnMutual
+    case starvation
+
+    var localizedDescription: String {
+        switch self {
+        case .selfTrail:
+            return L10n.endSelfTrail
+        case let .enemyTrail(killerName):
+            return L10n.endEnemyTrail(killerName: killerName)
+        case .boundary:
+            return L10n.endBoundary
+        case let .headOnLoss(killerName):
+            return L10n.endHeadOnLoss(killerName: killerName)
+        case .headOnMutual:
+            return L10n.endHeadOnMutual
+        case .starvation:
+            return L10n.endStarvation
+        }
+    }
+}
+
+/// Five canonical match lifecycle states.
+enum GameState: Equatable, Sendable {
+    case ready
+    case playing
+    case paused
+    case victory
+    case gameOver(DeathReason)
+}
+
+/// Collision event emitted during a simulation tick.
+struct CollisionEvent: Equatable, Sendable {
+    let victimId: UInt8
+    let killerId: UInt8?
+    let reason: DeathReason
 }
 
 /// Result summary from closing a trail loop and running exterior flood fill.
