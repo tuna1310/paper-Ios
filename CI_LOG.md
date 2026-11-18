@@ -32,3 +32,15 @@ Tracks every GitHub Actions CI run (`macos-latest`, `.github/workflows/ios.yml`)
 - **Root causes identified & changes applied:**
   1. **Simulator destination exit code `70`:** `xcrun simctl list` can pick a simulator runtime belonging to a different Xcode installation than the active `xcode-select` SDK. Switched Simulator selection in `.github/workflows/ios.yml` to parse `xcodebuild -showdestinations` directly and boot the simulator prior to `xcodebuild test`.
   2. **Log visibility without admin token:** Reordered CI steps to prioritize `XcodeGen → Build & Test → Device IPA → SwiftLint → SwiftFormat`, and added `Summarize Errors & Emit Annotations` (`GITHUB_STEP_SUMMARY` + `::error::` annotations) so every error line is visible in one place and readable via public check-run annotations.
+
+---
+
+## Round 3 — Run #2 (`44268686462`, commit `3902c2f`) Simulator Runtime Provisioning
+
+- **Observed CI result (`macos-latest`, Xcode 26.6):**
+  - `Select eligible iOS Simulator` failed because the runner image did not have an iOS Simulator runtime preinstalled/available (`xcodebuild -showdestinations` only returned placeholder `"Any iOS Simulator Device"`).
+  - Because `sim` did not have `continue-on-error: true`, subsequent `DeviceIPA`, `SwiftLint`, and `SwiftFormat` steps were skipped.
+- **Root cause & Approach 1 fix applied:**
+  1. Added full `simctl list runtimes` / `devices available` / installed Xcode / disk inventory logging (`artifacts/sim-inventory.txt` + Job Summary).
+  2. In `Provision & Boot iOS Simulator` (now with `continue-on-error: true`), if no eligible iOS simulator or iOS runtime exists, execute `xcodebuild -downloadPlatform iOS`, create `"CI iPhone"` via `xcrun simctl create` if needed, boot it, and run `xcodebuild test -destination "id=<udid>"`.
+  3. Kept `DeviceIPA`, `SwiftLint`, `SwiftFormat`, and `Summarize Errors & Emit Annotations` running on every pass so all error details surface together.
