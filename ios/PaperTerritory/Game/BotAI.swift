@@ -3,8 +3,6 @@ import Foundation
 /// Zero-allocation AI brain driving 10–15 bots with short-arc expansion, trail hunting,
 /// self-trail & dead-end avoidance, panic retreat home, and empty-area respawn.
 final class BotAI {
-    private enum Intent { case expand, retreatHome, huntTrail }
-
     private struct BrainState {
         var turnClockwise: Bool
         var maxArcCells: Int
@@ -13,17 +11,10 @@ final class BotAI {
         var lastDecidedCell: GridPoint
     }
 
-    private struct DifficultyTuning {
-        let maxArcBase: Int
-        let dangerSenseManhattan: Int
-        let huntRadiusManhattan: Int
-        let huntProbability: Double
-    }
-
     private struct DecisionContext {
         let bot: Entity
         let origin: GridPoint
-        let intent: Intent
+        let intent: BotIntent
         let target: GridPoint?
         let preferredSide: Direction
         let otherSide: Direction
@@ -50,7 +41,7 @@ final class BotAI {
     }
 
     func registerBot(_ bot: Entity) {
-        let tuning = tuningForDifficulty()
+        let tuning = BotDifficultyTuning.forDifficulty(difficulty)
         let arcVariance = Int.random(in: -2...3, using: &rng)
         let legLen = Int.random(in: 3...6, using: &rng)
         brains[bot.id] = BrainState(
@@ -63,18 +54,19 @@ final class BotAI {
     }
 
     func update(dt: Double, bots: [Entity], allEntities: [Entity], grid: GridMap) {
-        let tuning = tuningForDifficulty()
+        let tuning = BotDifficultyTuning.forDifficulty(difficulty)
 
         for bot in bots {
             if !bot.isAlive {
                 bot.respawnTimer -= dt
                 if bot.respawnTimer <= 0 {
-                    respawnBot(bot, allEntities: allEntities, grid: grid)
+                    _ = BotSpawner.respawn(bot, allEntities: allEntities, grid: grid, rng: &rng)
+                    registerBot(bot)
                 }
                 continue
             }
 
-            let decisionCell = upcomingDecisionCell(for: bot, grid: grid)
+            let decisionCell = BotNavigation.upcomingDecisionCell(for: bot, grid: grid)
             guard var brain = brains[bot.id] else {
                 registerBot(bot)
                 continue
@@ -129,48 +121,25 @@ final class BotAI {
         }
     }
 
-    // MARK: - Decision Cell & Intent
-
-    private func upcomingDecisionCell(for entity: Entity, grid: GridMap) -> GridPoint {
-        let epsilon = 1e-6
-        let activeCoord = entity.direction.dx != 0 ? entity.posX : entity.posY
-        let nearestCenter = (activeCoord - 0.5).rounded() + 0.5
-
-        var gx = min(max(0, Int((entity.posX - 0.5).rounded())), grid.width - 1)
-        var gy = min(max(0, Int((entity.posY - 0.5).rounded())), grid.height - 1)
-
-        if abs(activeCoord - nearestCenter) > epsilon {
-            let sign = Double(entity.direction.dx != 0 ? entity.direction.dx : entity.direction.dy)
-            if sign > 0 && activeCoord > nearestCenter + epsilon {
-                gx = min(grid.width - 1, gx + entity.direction.dx)
-                gy = min(grid.height - 1, gy + entity.direction.dy)
-            } else if sign < 0 && activeCoord < nearestCenter - epsilon {
-                gx = max(0, gx + entity.direction.dx)
-                gy = max(0, gy + entity.direction.dy)
-            }
-        }
-        return GridPoint(gx: gx, gy: gy)
-    }
-
     // swiftlint:disable:next function_parameter_count
     private func resolveIntentAndTarget(
         bot: Entity,
         cell: GridPoint,
         maxArcCells: Int,
-        tuning: DifficultyTuning,
+        tuning: BotDifficultyTuning,
         grid: GridMap,
         allEntities: [Entity]
-    ) -> (Intent, GridPoint?) {
+    ) -> (BotIntent, GridPoint?) {
         let insideOwn = grid.owner(at: cell.gx, gy: cell.gy) == bot.id
         if !insideOwn {
             let threatened = isThreatened(bot: bot, cell: cell, radius: tuning.dangerSenseManhattan, all: allEntities)
             if threatened || bot.trail.count >= maxArcCells {
-                return (.retreatHome, findNearestOwnedCell(for: bot.id, from: cell, grid: grid))
+                return (.retreatHome, BotNavigation.findNearestOwnedCell(for: bot.id, from: cell, grid: grid))
             }
         }
 
         if bot.trail.count < maxArcCells / 2, Double.random(in: 0..<1, using: &rng) < tuning.huntProbability {
-            if let prey = findNearestExposedTrail(
+            if let prey = BotNavigation.findNearestExposedTrail(
                 for: bot,
                 from: cell,
                 maxManhattan: tuning.huntRadiusManhattan,
@@ -205,8 +174,6 @@ final class BotAI {
         return false
     }
 
-    // MARK: - Direction Scoring & Dead-End Avoidance
-
     private func pickBestDirection(context: DecisionContext, brain: inout BrainState) -> Direction {
         let candidates = [context.bot.direction, context.preferredSide, context.otherSide]
         var bestDir = context.bot.direction
@@ -231,10 +198,9 @@ final class BotAI {
         }
 
         if bestScore == -1_000_000 {
-            for dir in candidates {
-                if context.grid.isInsideBounds(gx: context.origin.gx + dir.dx, gy: context.origin.gy + dir.dy) {
-                    return dir
-                }
+            let origin = context.origin
+            for dir in candidates where context.grid.isInsideBounds(gx: origin.gx + dir.dx, gy: origin.gy + dir.dy) {
+                return dir
             }
         }
 
@@ -359,135 +325,5 @@ final class BotAI {
             depth += 1
         }
         return depth
-    }
-
-    // MARK: - Spatial Queries & Respawn
-
-    private func findNearestOwnedCell(for ownerId: UInt8, from origin: GridPoint, grid: GridMap) -> GridPoint? {
-        let bounds = grid.bounds(for: ownerId)
-        guard !bounds.isEmpty else { return nil }
-        let minX = max(bounds.minX, origin.gx - 30)
-        let maxX = min(bounds.maxX, origin.gx + 30)
-        let minY = max(bounds.minY, origin.gy - 30)
-        let maxY = min(bounds.maxY, origin.gy + 30)
-
-        var bestPoint: GridPoint?
-        var bestDist = Int.max
-        if minX <= maxX && minY <= maxY {
-            for gy in minY...maxY {
-                for gx in minX...maxX where grid.owner(at: gx, gy: gy) == ownerId {
-                    let dist = abs(gx - origin.gx) + abs(gy - origin.gy)
-                    if dist < bestDist {
-                        bestDist = dist
-                        bestPoint = GridPoint(gx: gx, gy: gy)
-                    }
-                }
-            }
-        }
-        return bestPoint ?? GridPoint(gx: (bounds.minX + bounds.maxX) / 2, gy: (bounds.minY + bounds.maxY) / 2)
-    }
-
-    private func findNearestExposedTrail(
-        for bot: Entity,
-        from origin: GridPoint,
-        maxManhattan: Int,
-        allEntities: [Entity]
-    ) -> GridPoint? {
-        var bestPoint: GridPoint?
-        var bestScore = Double.greatestFiniteMagnitude
-        for other in allEntities where other.id != bot.id && other.isAlive && !other.trail.isEmpty {
-            let points = other.trail.points
-            let playerBias = other.isBot ? 1.0 : 0.7
-            for idx in stride(from: 0, to: points.count, by: 2) {
-                let pt = points[idx]
-                let dist = abs(pt.gx - origin.gx) + abs(pt.gy - origin.gy)
-                if dist <= maxManhattan && Double(dist) * playerBias < bestScore {
-                    bestScore = Double(dist) * playerBias
-                    bestPoint = pt
-                }
-            }
-        }
-        return bestPoint
-    }
-
-    private func respawnBot(_ bot: Entity, allEntities: [Entity], grid: GridMap) {
-        let margin = GameConfig.botSpawnBorderMarginCells
-        let maxCoordX = max(margin + 1, grid.width - 1 - margin)
-        let maxCoordY = max(margin + 1, grid.height - 1 - margin)
-
-        var chosenPoint: GridPoint?
-        for requireNeutral in [true, false] where chosenPoint == nil {
-            let attempts = requireNeutral ? 40 : 25
-            for _ in 0..<attempts {
-                let gx = Int.random(in: margin...maxCoordX, using: &rng)
-                let gy = Int.random(in: margin...maxCoordY, using: &rng)
-                if isSafeSpawnPatch(
-                    gx: gx,
-                    gy: gy,
-                    allEntities: allEntities,
-                    grid: grid,
-                    requireAllNeutral: requireNeutral
-                ) {
-                    chosenPoint = GridPoint(gx: gx, gy: gy)
-                    break
-                }
-            }
-        }
-
-        let spawn = chosenPoint ?? GridPoint(gx: grid.width / 2, gy: grid.height / 2)
-        let initialDir = Direction.allCases[Int.random(in: 0..<Direction.allCases.count, using: &rng)]
-        grid.initStarterTerritory(ownerId: bot.id, centerX: spawn.gx, centerY: spawn.gy)
-        bot.resetForRespawn(spawnCellX: spawn.gx, spawnCellY: spawn.gy, initialDirection: initialDir)
-        registerBot(bot)
-    }
-
-    private func isSafeSpawnPatch(
-        gx: Int,
-        gy: Int,
-        allEntities: [Entity],
-        grid: GridMap,
-        requireAllNeutral: Bool
-    ) -> Bool {
-        let radius = GameConfig.starterRadiusCells
-        let minClear = GameConfig.botSpawnMinClearanceCells
-        for other in allEntities where other.isAlive {
-            if abs(other.cellX - gx) + abs(other.cellY - gy) < minClear { return false }
-        }
-        if requireAllNeutral {
-            for sy in (gy - radius)...(gy + radius) {
-                for sx in (gx - radius)...(gx + radius) {
-                    if grid.owner(at: sx, gy: sy) != GameConfig.neutralOwnerId {
-                        return false
-                    }
-                }
-            }
-        }
-        return true
-    }
-
-    private func tuningForDifficulty() -> DifficultyTuning {
-        switch difficulty {
-        case .easy:
-            return DifficultyTuning(
-                maxArcBase: 7,
-                dangerSenseManhattan: 4,
-                huntRadiusManhattan: 6,
-                huntProbability: 0.25
-            )
-        case .normal:
-            return DifficultyTuning(
-                maxArcBase: 10,
-                dangerSenseManhattan: 7,
-                huntRadiusManhattan: 11,
-                huntProbability: 0.65
-            )
-        case .hard:
-            return DifficultyTuning(
-                maxArcBase: 13,
-                dangerSenseManhattan: 11,
-                huntRadiusManhattan: 17,
-                huntProbability: 0.95
-            )
-        }
     }
 }

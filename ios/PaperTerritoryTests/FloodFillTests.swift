@@ -27,10 +27,7 @@ final class FloodFillTests: XCTestCase {
     }
 
     func testCapturesEnclosedNeutralTerritory() {
-        for gx in 63...66 { player.trail.append(gx: gx, gy: 60) }
-        for gy in 61...66 { player.trail.append(gx: 66, gy: gy) }
-        for gx in stride(from: 65, through: 60, by: -1) { player.trail.append(gx: gx, gy: 66) }
-        for gy in stride(from: 65, through: 63, by: -1) { player.trail.append(gx: 60, gy: gy) }
+        appendClosedRectTrail()
 
         let result = floodFill.closeLoopAndCapture(grid: grid, entity: player)
 
@@ -45,10 +42,7 @@ final class FloodFillTests: XCTestCase {
         grid.setOwner(2, at: 64, gy: 64)
         XCTAssertEqual(grid.countCells(for: 2), 2)
 
-        for gx in 63...66 { player.trail.append(gx: gx, gy: 60) }
-        for gy in 61...66 { player.trail.append(gx: 66, gy: gy) }
-        for gx in stride(from: 65, through: 60, by: -1) { player.trail.append(gx: gx, gy: 66) }
-        for gy in stride(from: 65, through: 63, by: -1) { player.trail.append(gx: 60, gy: gy) }
+        appendClosedRectTrail()
 
         floodFill.closeLoopAndCapture(grid: grid, entity: player)
 
@@ -58,9 +52,15 @@ final class FloodFillTests: XCTestCase {
     }
 
     func testOpenLoopDoesNotOverflowIntoExterior() {
-        for gx in 63...66 { player.trail.append(gx: gx, gy: 60) }
-        for gy in 61...66 { player.trail.append(gx: 66, gy: gy) }
-        for gx in stride(from: 65, through: 60, by: -1) { player.trail.append(gx: gx, gy: 66) }
+        for gx in 63...66 {
+            player.trail.append(gx: gx, gy: 60)
+        }
+        for gy in 61...66 {
+            player.trail.append(gx: 66, gy: gy)
+        }
+        for gx in stride(from: 65, through: 60, by: -1) {
+            player.trail.append(gx: gx, gy: 66)
+        }
         player.trail.append(gx: 60, gy: 65)
         player.trail.append(gx: 60, gy: 64)
 
@@ -91,5 +91,20 @@ final class FloodFillTests: XCTestCase {
         XCTAssertEqual(grid.owner(at: 55, gy: 60), 1)
         XCTAssertEqual(grid.owner(at: 48, gy: 60), GameConfig.neutralOwnerId)
         XCTAssertEqual(grid.owner(at: 64, gy: 60), GameConfig.neutralOwnerId)
+    }
+
+    private func appendClosedRectTrail() {
+        for gx in 63...66 {
+            player.trail.append(gx: gx, gy: 60)
+        }
+        for gy in 61...66 {
+            player.trail.append(gx: 66, gy: gy)
+        }
+        for gx in stride(from: 65, through: 60, by: -1) {
+            player.trail.append(gx: gx, gy: 66)
+        }
+        for gy in stride(from: 65, through: 63, by: -1) {
+            player.trail.append(gx: 60, gy: gy)
+        }
     }
 }

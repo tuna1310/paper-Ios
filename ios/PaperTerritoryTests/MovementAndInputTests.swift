@@ -45,13 +45,19 @@ final class MovementAndInputTests: XCTestCase {
 
     func testEntityRecordsTrailOutsideOwnTerritoryAndClosesLoop() {
         let engine = GameEngine()
-        for _ in 0..<25 { engine.tick() }
+        for _ in 0..<25 {
+            engine.tick()
+        }
         XCTAssertFalse(engine.player.trail.isEmpty)
 
         engine.enqueuePlayerTurn(.up)
-        for _ in 0..<10 { engine.tick() }
+        for _ in 0..<10 {
+            engine.tick()
+        }
         engine.enqueuePlayerTurn(.left)
-        for _ in 0..<25 { engine.tick() }
+        for _ in 0..<25 {
+            engine.tick()
+        }
 
         XCTAssertTrue(engine.isPlaying)
         XCTAssertTrue(engine.player.trail.isEmpty)

@@ -96,10 +96,9 @@ final class CollisionDetector {
 
     private func checkStarvation(entities: [Entity], grid: GridMap) {
         for entity in entities where entity.isAlive && !eliminatedIds.contains(entity.id) {
-            if grid.countCells(for: entity.id) <= 0 {
-                eliminatedIds.insert(entity.id)
-                eventsBuffer.append(CollisionEvent(victimId: entity.id, killerId: nil, reason: .starvation))
-            }
+            guard grid.countCells(for: entity.id) <= 0 else { continue }
+            eliminatedIds.insert(entity.id)
+            eventsBuffer.append(CollisionEvent(victimId: entity.id, killerId: nil, reason: .starvation))
         }
     }
 

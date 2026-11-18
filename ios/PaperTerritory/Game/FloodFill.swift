@@ -128,11 +128,12 @@ final class FloodFill {
         for gy in minY...maxY {
             let rowOffset = (gy + 1) * paddedStride
             for gx in minX...maxX {
-                if visited[rowOffset + (gx + 1)] != token && grid.owner(at: gx, gy: gy) != ownerId {
-                    if grid.setOwner(ownerId, at: gx, gy: gy) {
-                        count += 1
-                        bounds.include(gx: gx, gy: gy)
-                    }
+                guard visited[rowOffset + gx + 1] != token, grid.owner(at: gx, gy: gy) != ownerId else {
+                    continue
+                }
+                if grid.setOwner(ownerId, at: gx, gy: gy) {
+                    count += 1
+                    bounds.include(gx: gx, gy: gy)
                 }
             }
         }

@@ -1,6 +1,7 @@
 --swiftversion 5.9
 --indent 4
 --maxwidth 120
+--ranges nospace
 --stripunusedargs closure-only
 --wraparguments preserve
 --commas inline
