@@ -15,5 +15,8 @@ Tracks every GitHub Actions CI run (`macos-latest`, `.github/workflows/ios.yml`)
   2. **SwiftFormat alignment (`ios/.swiftformat`):**
      - **Cause:** Default `numberFormatting` rejects 2-byte hex grouping (`0xFF_2A_6D`), `andOperator` rejects `if a && b`, and `sortedImports` has case-sensitivity edge cases (`os.signpost` vs `QuartzCore`).
      - **Fix:** Disabled `numberFormatting`, `andOperator`, and `sortedImports` in `ios/.swiftformat`.
+  3. **Unsigned device `.ipa` & procedural AppIcon (`ios.yml`, `tools/generate_app_icon.mjs`):**
+     - **Cause:** Windows cannot compile iOS binaries locally (`xcodebuild` is macOS-only), and installing onto a real iPhone via Sideloadly requires a compiled `arm64` `.ipa` with a valid `1024x1024` `AppIcon`.
+     - **Fix:** Generated `AppIcon-1024.png` procedurally via code and added an `iphoneos` unsigned Release `.ipa` build + `PaperTerritory-unsigned-ipa` artifact upload to `.github/workflows/ios.yml`.
 
 *(Awaiting first remote CI run after user pushes `feature-paperio-ios`.)*

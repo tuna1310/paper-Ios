@@ -62,3 +62,16 @@ Always measure performance on a physical device using **Release** configuration 
 3. Set destination to **Any iOS Device (arm64)** and choose **Product → Archive**.
 4. In the Xcode Organizer window, select the archive → **Distribute App → TestFlight & App Store → Upload**.
 5. In **App Store Connect**, complete export compliance (no custom encryption beyond standard HTTPS if applicable) and invite internal/external testers.
+
+---
+
+## 6. Installing on iPhone from Windows (via CI `.ipa` + Sideloadly)
+
+Because Windows cannot compile iOS binaries locally, `.github/workflows/ios.yml` automatically builds an unsigned `arm64` device package on `macos-latest` (`PaperTerritory-unsigned.ipa`):
+
+1. Push your branch (`.\tools\push.ps1`) and wait for **iOS CI** on GitHub Actions to finish green.
+2. Open the workflow run → **Artifacts** → download **`PaperTerritory-unsigned-ipa`** and unzip `PaperTerritory-unsigned.ipa`.
+3. Plug your iPhone into Windows via USB (trust the computer on iPhone; enable **Settings → Privacy & Security → Developer Mode** on iOS 16+).
+4. Open **Sideloadly**, drag `PaperTerritory-unsigned.ipa` in, sign with your Apple ID, and click **Start**.
+5. On iPhone: **Settings → General → VPN & Device Management** → trust your developer certificate, then launch **Paper Territory**.
+

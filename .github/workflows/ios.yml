@@ -13,7 +13,7 @@ on:
 
 jobs:
   build-test-lint:
-    name: Build, Test & Lint (iOS Simulator)
+    name: Build, Test & Unsigned IPA (iOS)
     runs-on: macos-latest
     timeout-minutes: 25
 
@@ -81,7 +81,7 @@ jobs:
           ')
           echo "udid=$SIM_UDID" >> "$GITHUB_OUTPUT"
 
-      - name: Build & Run Unit Tests
+      - name: Build & Run Unit Tests (iOS Simulator)
         id: test
         if: steps.gen.outcome == 'success'
         continue-on-error: true
@@ -95,6 +95,36 @@ jobs:
             -resultBundlePath artifacts/TestResults.xcresult \
             2>&1 | tee artifacts/xcodebuild.log
 
+      - name: Build Unsigned Device IPA (Sideloadly / AltStore)
+        id: ipa
+        if: steps.gen.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project ios/PaperTerritory.xcodeproj \
+            -scheme PaperTerritory \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath ios/DerivedDataDevice \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee artifacts/xcodebuild-device.log
+
+          APP_PATH="ios/DerivedDataDevice/Build/Products/Release-iphoneos/PaperTerritory.app"
+          if [ -d "$APP_PATH" ]; then
+            mkdir -p artifacts/ipa_stage/Payload
+            cp -R "$APP_PATH" artifacts/ipa_stage/Payload/
+            (cd artifacts/ipa_stage && zip -qry ../PaperTerritory-unsigned.ipa Payload)
+            rm -rf artifacts/ipa_stage
+            ls -lh artifacts/PaperTerritory-unsigned.ipa
+          else
+            echo "PaperTerritory.app not found at $APP_PATH"
+            exit 1
+          fi
+
       - name: Write CI Summary
         if: always()
         run: |
@@ -103,15 +133,26 @@ jobs:
             echo "- SwiftFormat: ${{ steps.format.outcome }}"
             echo "- SwiftLint: ${{ steps.lint.outcome }}"
             echo "- XcodeGen: ${{ steps.gen.outcome }}"
-            echo "- Build & Test: ${{ steps.test.outcome }}"
+            echo "- Simulator Tests: ${{ steps.test.outcome }}"
+            echo "- Unsigned Device IPA: ${{ steps.ipa.outcome }}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Unsigned IPA for iPhone Testing
+        if: steps.ipa.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PaperTerritory-unsigned-ipa
+          path: artifacts/PaperTerritory-unsigned.ipa
+          retention-days: 14
 
       - name: Upload CI logs and test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ios-ci-logs
-          path: artifacts/
+          path: |
+            artifacts/*.log
+            artifacts/TestResults.xcresult
           retention-days: 14
 
       - name: Enforce All CI Gates
@@ -120,7 +161,8 @@ jobs:
           if [ "${{ steps.format.outcome }}" != "success" ] || \
              [ "${{ steps.lint.outcome }}" != "success" ] || \
              [ "${{ steps.gen.outcome }}" != "success" ] || \
-             [ "${{ steps.test.outcome }}" != "success" ]; then
+             [ "${{ steps.test.outcome }}" != "success" ] || \
+             [ "${{ steps.ipa.outcome }}" != "success" ]; then
             echo "One or more CI checks failed. See logs above or in artifacts."
             exit 1
           fi
