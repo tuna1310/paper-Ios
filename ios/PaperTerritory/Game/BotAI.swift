@@ -229,7 +229,8 @@ final class BotAI {
             : scoreCorridorRisk(dir: dir, nextCell: nextCell, reach: reach, context: context)
 
         if nextCell.gx <= 1 || nextCell.gx >= context.grid.width - 2 ||
-            nextCell.gy <= 1 || nextCell.gy >= context.grid.height - 2 {
+            nextCell.gy <= 1 || nextCell.gy >= context.grid.height - 2
+        {
             score -= 120
         }
         return score

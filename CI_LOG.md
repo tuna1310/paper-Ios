@@ -104,3 +104,16 @@ Tracks every GitHub Actions CI run (`macos-latest`, `.github/workflows/ios.yml`)
 - **Fixes applied:**
   - Wrapped every single-line `if ... { ... }` statement onto multi-line blocks (zero logic changes) across all 8 matching files in `ios/`: `Leaderboard.swift`, `InputQueue.swift`, `CollisionTests.swift`, `Types.swift`, `FloodFill.swift`, `BotSpawner.swift`, `BotNavigation.swift`, and `ArenaScene.swift`.
   - Documented the exact CI-identical local `(cd ios && swiftformat --lint --config .swiftformat .)` command in `IOS_SETUP.md` so local and CI always read the single `ios/.swiftformat`.
+
+---
+
+## Round 8 — Run #7 (`44328459953`, commit `943ba4f`) Final 4 `SwiftFormat` Lines
+
+- **Observed CI result (`macos-15`, pinned `Xcode 16.4`):**
+  - `Build Unsigned IPA (iOS)` (`✅`, `paperio-unsigned-ipa` `437,911` bytes), `XcodeGen` (`✅`), `Simulator` (`✅`), `XcodeTest` (`✅`), and `SwiftLint` (`✅`) all passed.
+  - `Check SwiftFormat` surfaced only 5 lines across 4 files (under GitHub's 10-annotation limit, so full list was visible):
+    1. `ArenaScene.swift:177-178` (`indent`): 4-space indent inside `#if DEBUG ... #endif`.
+    2. `BotNavigation.swift:248` (`redundantParens`): `(-radius)...radius` -> `-radius...radius`.
+    3. `GameEngine.swift:217` (`wrapMultilineStatementBraces`): opening `{` on new line for multiline `if`.
+    4. `BotAI.swift:232` (`wrapMultilineStatementBraces`): opening `{` on new line for multiline `if`.
+- **Fixes applied:** Fixed all 4 files cleanly with zero logic changes.

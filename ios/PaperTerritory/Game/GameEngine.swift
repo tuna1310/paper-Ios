@@ -214,7 +214,8 @@ final class GameEngine {
            let killerId = event.killerId,
            killerId != victim.id,
            let killer = entities.first(where: { $0.id == killerId }),
-           killer.isAlive {
+           killer.isAlive
+        {
             killer.kills += 1
         }
 

@@ -174,8 +174,8 @@ final class ArenaScene: SKScene {
     override func didMove(to view: SKView) {
         super.didMove(to: view)
         #if DEBUG
-        view.showsFPS = true
-        view.showsNodeCount = true
+            view.showsFPS = true
+            view.showsNodeCount = true
         #endif
         view.ignoresSiblingOrder = true
 

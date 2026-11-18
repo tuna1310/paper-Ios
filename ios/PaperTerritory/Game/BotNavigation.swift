@@ -245,7 +245,7 @@ enum BotNavigation {
         bounds: GridRect,
         grid: GridMap
     ) -> GridPoint? {
-        for dx in (-radius)...radius {
+        for dx in -radius...radius {
             let rem = radius - abs(dx)
             let gx = origin.gx + dx
             guard gx >= bounds.minX && gx <= bounds.maxX else { continue }
