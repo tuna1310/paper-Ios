@@ -20,3 +20,15 @@ Tracks every GitHub Actions CI run (`macos-latest`, `.github/workflows/ios.yml`)
      - **Fix:** Generated `AppIcon-1024.png` procedurally via code and added an `iphoneos` unsigned Release `.ipa` build + `PaperTerritory-unsigned-ipa` artifact upload to `.github/workflows/ios.yml`.
 
 *(Awaiting first remote CI run after user pushes `feature-paperio-ios`.)*
+
+---
+
+## Round 2 — Run #1 (`44267623163`, commit `8a6cc98`) Analysis & Diagnostics Fix
+
+- **Observed CI result (`macos-latest`):**
+  - `PaperTerritory-unsigned-ipa` artifact (`440,831` bytes) compiled and uploaded successfully (`iphoneos` Release `arm64`), confirming app target Swift compilation succeeded.
+  - Job failed at `Enforce All CI Gates` with 4 failure annotations (`exit code 1`, `70`, `2`, `1`) corresponding to `SwiftFormat` (`1`), `xcodebuild test` (`70`), `SwiftLint` (`2`), and the final gate (`1`).
+  - Raw GitHub job logs endpoint returned `403 Must have admin rights to Repository` for unauthenticated reads.
+- **Root causes identified & changes applied:**
+  1. **Simulator destination exit code `70`:** `xcrun simctl list` can pick a simulator runtime belonging to a different Xcode installation than the active `xcode-select` SDK. Switched Simulator selection in `.github/workflows/ios.yml` to parse `xcodebuild -showdestinations` directly and boot the simulator prior to `xcodebuild test`.
+  2. **Log visibility without admin token:** Reordered CI steps to prioritize `XcodeGen → Build & Test → Device IPA → SwiftLint → SwiftFormat`, and added `Summarize Errors & Emit Annotations` (`GITHUB_STEP_SUMMARY` + `::error::` annotations) so every error line is visible in one place and readable via public check-run annotations.

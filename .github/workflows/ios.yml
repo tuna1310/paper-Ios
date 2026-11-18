@@ -38,20 +38,6 @@ jobs:
           swiftlint version
           swiftformat --version
 
-      - name: Check SwiftFormat
-        id: format
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          (cd ios && swiftformat --lint --config .swiftformat .) 2>&1 | tee artifacts/swiftformat.log
-
-      - name: Run SwiftLint
-        id: lint
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          (cd ios && swiftlint lint --strict --config .swiftlint.yml) 2>&1 | tee artifacts/swiftlint.log
-
       - name: Generate Xcode project via XcodeGen
         id: gen
         continue-on-error: true
@@ -59,27 +45,36 @@ jobs:
           set -o pipefail
           (cd ios && xcodegen generate) 2>&1 | tee artifacts/xcodegen.log
 
-      - name: Select available iOS Simulator
+      - name: Select eligible iOS Simulator
         id: sim
         if: steps.gen.outcome == 'success'
         run: |
+          xcodebuild -project ios/PaperTerritory.xcodeproj -scheme PaperTerritory -showdestinations > artifacts/destinations.txt 2>&1
+          cat artifacts/destinations.txt
           SIM_UDID=$(python3 -c '
-          import json, subprocess, sys
-          data = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"]))
-          candidates = []
-          for runtime, devices in data.get("devices", {}).items():
-              if "iOS" not in runtime:
+          import re, sys
+          txt = open("artifacts/destinations.txt").read()
+          matches = []
+          for line in txt.splitlines():
+              if "platform:iOS Simulator" not in line or "placeholder" in line:
                   continue
-              for dev in devices:
-                  if dev.get("isAvailable") and "iPhone" in dev.get("name", ""):
-                      candidates.append((runtime, dev["name"], dev["udid"]))
-          if not candidates:
-              sys.exit("No available iPhone Simulator found")
-          candidates.sort(key=lambda x: (x[0], x[1]), reverse=True)
-          print(f"Selected simulator: {candidates[0][1]} ({candidates[0][0]}) -> {candidates[0][2]}", file=sys.stderr)
-          print(candidates[0][2])
+              m_id = re.search(r"id:([A-Fa-f0-9-]{36})", line)
+              m_os = re.search(r"OS:([0-9.]+)", line)
+              m_name = re.search(r"name:([^,}]+)", line)
+              if m_id and m_os and m_name:
+                  matches.append((m_id.group(1), m_os.group(1), m_name.group(1).strip()))
+          iphones = [m for m in matches if "iPhone" in m[2]]
+          pool = iphones or matches
+          if not pool:
+              sys.exit("No eligible iOS Simulator destination found in xcodebuild -showdestinations")
+          pool.sort(key=lambda m: (tuple(int(x) for x in m[1].split(".")), m[2]), reverse=True)
+          chosen = pool[0]
+          print(f"Selected simulator: {chosen[2]} (iOS {chosen[1]}) -> {chosen[0]}", file=sys.stderr)
+          print(chosen[0])
           ')
           echo "udid=$SIM_UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$SIM_UDID" || true
+          xcrun simctl bootstatus "$SIM_UDID" -b || true
 
       - name: Build & Run Unit Tests (iOS Simulator)
         id: test
@@ -125,17 +120,74 @@ jobs:
             exit 1
           fi
 
-      - name: Write CI Summary
+      - name: Run SwiftLint
+        id: lint
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          (cd ios && swiftlint lint --strict --config .swiftlint.yml) 2>&1 | tee artifacts/swiftlint.log
+
+      - name: Check SwiftFormat
+        id: format
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          (cd ios && swiftformat --lint --config .swiftformat .) 2>&1 | tee artifacts/swiftformat.log
+
+      - name: Summarize Errors & Emit Annotations
         if: always()
         run: |
-          {
-            echo "## iOS CI Results"
-            echo "- SwiftFormat: ${{ steps.format.outcome }}"
-            echo "- SwiftLint: ${{ steps.lint.outcome }}"
-            echo "- XcodeGen: ${{ steps.gen.outcome }}"
-            echo "- Simulator Tests: ${{ steps.test.outcome }}"
-            echo "- Unsigned Device IPA: ${{ steps.ipa.outcome }}"
-          } >> "$GITHUB_STEP_SUMMARY"
+          python3 - << 'PY'
+          import os, re
+
+          def emit(title, lines):
+              print(f"\n=== {title} ===")
+              for ln in lines[:15]:
+                  clean = ln.replace("%", "%25").replace("\r", "").strip()
+                  print(clean)
+                  print(f"::error title={title}::{clean[:240]}")
+
+          summary = [
+              "## iOS CI Results",
+              f"- XcodeGen: {os.environ.get('GEN_OUTCOME')}",
+              f"- Simulator Build & Test: {os.environ.get('TEST_OUTCOME')}",
+              f"- Unsigned Device IPA: {os.environ.get('IPA_OUTCOME')}",
+              f"- SwiftLint: {os.environ.get('LINT_OUTCOME')}",
+              f"- SwiftFormat: {os.environ.get('FORMAT_OUTCOME')}",
+              ""
+          ]
+
+          checks = [
+              ("XcodeGen", os.environ.get("GEN_OUTCOME"), "artifacts/xcodegen.log", None),
+              ("XcodeTest", os.environ.get("TEST_OUTCOME"), "artifacts/xcodebuild.log", r"(error:|fatal error:|failed|TEST FAILED|Destination)"),
+              ("DeviceIPA", os.environ.get("IPA_OUTCOME"), "artifacts/xcodebuild-device.log", r"(error:|fatal error:|failed)"),
+              ("SwiftLint", os.environ.get("LINT_OUTCOME"), "artifacts/swiftlint.log", r"(warning:|error:)"),
+              ("SwiftFormat", os.environ.get("FORMAT_OUTCOME"), "artifacts/swiftformat.log", r"(\.swift|error:)")
+          ]
+
+          for title, outcome, path, pattern in checks:
+              if outcome != "success" and os.path.exists(path):
+                  all_lines = [l.rstrip() for l in open(path, errors="replace") if l.strip()]
+                  if pattern:
+                      matched = [l for l in all_lines if re.search(pattern, l, re.I)]
+                      picked = matched[-20:] if matched else all_lines[-20:]
+                  else:
+                      picked = all_lines[-20:]
+                  emit(title, picked)
+                  summary.append(f"### {title} ({outcome})")
+                  summary.append("```")
+                  summary.extend(picked[:20])
+                  summary.append("```")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("\n".join(summary) + "\n")
+          PY
+        env:
+          GEN_OUTCOME: ${{ steps.gen.outcome }}
+          TEST_OUTCOME: ${{ steps.test.outcome }}
+          IPA_OUTCOME: ${{ steps.ipa.outcome }}
+          LINT_OUTCOME: ${{ steps.lint.outcome }}
+          FORMAT_OUTCOME: ${{ steps.format.outcome }}
 
       - name: Upload Unsigned IPA for iPhone Testing
         if: steps.ipa.outcome == 'success'
@@ -152,17 +204,18 @@ jobs:
           name: ios-ci-logs
           path: |
             artifacts/*.log
+            artifacts/destinations.txt
             artifacts/TestResults.xcresult
           retention-days: 14
 
       - name: Enforce All CI Gates
         if: always()
         run: |
-          if [ "${{ steps.format.outcome }}" != "success" ] || \
-             [ "${{ steps.lint.outcome }}" != "success" ] || \
-             [ "${{ steps.gen.outcome }}" != "success" ] || \
+          if [ "${{ steps.gen.outcome }}" != "success" ] || \
              [ "${{ steps.test.outcome }}" != "success" ] || \
-             [ "${{ steps.ipa.outcome }}" != "success" ]; then
-            echo "One or more CI checks failed. See logs above or in artifacts."
+             [ "${{ steps.ipa.outcome }}" != "success" ] || \
+             [ "${{ steps.lint.outcome }}" != "success" ] || \
+             [ "${{ steps.format.outcome }}" != "success" ]; then
+            echo "One or more CI checks failed. See Summarize Errors step above."
             exit 1
           fi
