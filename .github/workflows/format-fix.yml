@@ -1,0 +1,57 @@
+name: format-fix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-swiftformat:
+    name: Auto-Format Swift Sources (SwiftFormat)
+    runs-on: macos-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout current branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install SwiftFormat (same toolchain as iOS CI)
+        run: |
+          if ! command -v swiftformat >/dev/null 2>&1; then
+            brew install swiftformat
+          fi
+          swiftformat --version
+
+      - name: Run SwiftFormat on ios/ and capture diff
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          (cd ios && swiftformat --config .swiftformat .)
+          git diff -- ios > artifacts/swiftformat.diff
+          echo "=== SwiftFormat diff line count ==="
+          wc -l artifacts/swiftformat.diff
+          (cd ios && swiftformat --lint --config .swiftformat .)
+
+      - name: Upload SwiftFormat diff artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swiftformat-diff
+          path: artifacts/swiftformat.diff
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Commit and push formatting changes if any
+        run: |
+          git add -- ios
+          if git diff --cached --quiet; then
+            echo "No SwiftFormat changes to commit."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "style: apply swiftformat"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi

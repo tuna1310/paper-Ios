@@ -44,8 +44,12 @@ This log documents architectural choices, reconciled requirements, formulas, and
 - **Decision:** Store all user-facing strings in `ios/PaperTerritory/Resources/Localizable.xcstrings` (`sourceLanguage: "en"`) and resolve via `L10n` wrapper calling `String(localized:bundle:)`. Enforce via unit tests (`LocalizationTests`) that zero Vietnamese characters appear in any localized string or bot name.
 
 ## Decision 7: SwiftFormat & SwiftLint Configuration Adjustments
-- **Decision:** Configure `ios/.swiftformat` with `--ranges nospace` and disable `numberFormatting`, `andOperator`, `sortedImports`, `redundantSelf`, `blankLinesAroundMark`; keep all SwiftLint safety rules (`force_cast: error`, `force_try: error`, `force_unwrapping: error`, `implicitly_unwrapped_optional`, `type_body_length: 350`) strictly active by decomposing `BotAI` into `BotNavigation` + `BotSpawner`.
-- **Rationale:** SwiftFormat 0.55+ defaults to spaced ranges (`0 ..< 6`), 4-digit hex grouping (breaking `0xFF_2A_6D` color readability), and rewriting `&&` inside conditions to `,`. Disabling those stylistic overrides prevents noisy format churn while keeping strict Swift safety checks intact.
+- **Decision:** Configure `ios/.swiftformat` with `--ranges nospace` and disable `redundantSelf`, `blankLinesAroundMark`, `numberFormatting`, `andOperator`, `sortedImports`, `conditionalAssignment`, `nestedIf`, and `wrapPropertyBodies`; keep `wrapIfStatementBodies`, `wrapLoopBodies`, and `redundantReturn` enabled and enforce automated formatting via `.github/workflows/format-fix.yml`; keep all SwiftLint safety rules (`force_cast: error`, `force_try: error`, `force_unwrapping: error`, `implicitly_unwrapped_optional`, `type_body_length: 350`) strictly active by decomposing `BotAI` into `BotNavigation` (`BotReachabilityAnalyzer`) + `BotSpawner`.
+- **Rationale:**
+  - `conditionalAssignment` rewrites explicit `if/else` assignments into Swift 5.9 `if` expressions that hinder debugger stepping and long-line readability.
+  - `nestedIf` rewrites/combines nested conditionals in ways that clash with keeping `andOperator` disabled (`if a && b` readability).
+  - `wrapPropertyBodies` expands concise 1-line computed properties (`var cellX: Int { Int(floor(posX)) }`) onto 3 lines, inflating line counts near SwiftLint thresholds (`file_length`/`type_body_length`) without clarity gains.
+  - Conversely, `wrapIfStatementBodies` and `redundantReturn` produce uniform, clean modern Swift and are applied automatically on `macos-latest` via `.github/workflows/format-fix.yml`.
 
 ## Performance Measurements Log
 - *Baseline (Simulator CI / Windows authoring environment):* Benchmarks for FloodFill, GridMap dirty updates, and 15-bot 10-second simulation runs are executed in `GameEngineTests` / `FloodFillTests` on `macos-latest` CI; physical iPhone 60/120 Hz frame-time telemetry (`FrameMetrics` via `CACurrentMediaTime()` + `os_signpost`) will be recorded here once profiled on hardware.
