@@ -1,0 +1,27 @@
+# XcodeGen generated project (never commit .xcodeproj)
+*.xcodeproj/
+!*.xcodeproj/xcshareddata/
+*.xcworkspace/
+
+# Xcode build & user data
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+*.moved-aside
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# SwiftLint / SwiftFormat / SPM
+.swiftpm/
+.build/
+
+# macOS / Windows OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# CI artifacts
+artifacts/
+logs/
