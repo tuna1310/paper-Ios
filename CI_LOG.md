@@ -117,3 +117,15 @@ Tracks every GitHub Actions CI run (`macos-latest`, `.github/workflows/ios.yml`)
     3. `GameEngine.swift:217` (`wrapMultilineStatementBraces`): opening `{` on new line for multiline `if`.
     4. `BotAI.swift:232` (`wrapMultilineStatementBraces`): opening `{` on new line for multiline `if`.
 - **Fixes applied:** Fixed all 4 files cleanly with zero logic changes.
+
+---
+
+## Round 9 — Run #8 (`44347545301`, commit `efeaed3`) Resolve SwiftLint `opening_brace` vs SwiftFormat Conflict
+
+- **Observed CI result (`macos-15`, pinned `Xcode 16.4`):**
+  - `Test & Lint`: `XcodeGen` (`✅`), `Simulator` (`✅`), `XcodeTest` (`✅`), and **`SwiftFormat` (`✅`, `0` violations)** all passed.
+  - `SwiftLint` failed **only** on 2 `opening_brace` violations (`GameEngine.swift:218:9`, `BotAI.swift:233:9`) introduced by putting `{` on its own line to satisfy SwiftFormat's `wrapMultilineStatementBraces`.
+  - `Build Unsigned IPA` was canceled by GitHub hosted runner capacity (`The job was not acquired by Runner of type hosted even after multiple attempts`), not a code error.
+- **Fixes applied:**
+  - Refactored `BotAI.swift` (`nearHorizontalEdge`/`nearVerticalEdge`) and `GameEngine.swift` (`creditKiller(for:victimId:)`) into single-line `if ... {` statements with identical logic; scanned all 33 Swift files confirming zero other standalone `{` lines.
+  - Disabled `wrapMultilineStatementBraces` in `ios/.swiftformat` so SwiftFormat and SwiftLint's `opening_brace` agree permanently, documented in `docs/CI_ERRORS.md` and `DECISIONS.md`.

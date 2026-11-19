@@ -5,5 +5,5 @@
 --stripunusedargs closure-only
 --wraparguments preserve
 --commas inline
---disable redundantSelf,blankLinesAroundMark,numberFormatting,andOperator,sortedImports,conditionalAssignment,nestedIf,wrapPropertyBodies
+--disable redundantSelf,blankLinesAroundMark,numberFormatting,andOperator,sortedImports,conditionalAssignment,nestedIf,wrapPropertyBodies,wrapMultilineStatementBraces
 --exclude DerivedData,PaperTerritory.xcodeproj

@@ -210,12 +210,7 @@ final class GameEngine {
         victim.trail.clear()
         grid.clearTerritory(for: victim.id)
 
-        if event.reason != .headOnMutual,
-           let killerId = event.killerId,
-           killerId != victim.id,
-           let killer = entities.first(where: { $0.id == killerId }),
-           killer.isAlive
-        {
+        if let killer = creditKiller(for: event, victimId: victim.id) {
             killer.kills += 1
         }
 
@@ -227,5 +222,15 @@ final class GameEngine {
         } else {
             gameState = .gameOver(event.reason)
         }
+    }
+
+    private func creditKiller(for event: CollisionEvent, victimId: UInt8) -> Entity? {
+        guard event.reason != .headOnMutual, let killerId = event.killerId, killerId != victimId else {
+            return nil
+        }
+        guard let killer = entities.first(where: { $0.id == killerId }), killer.isAlive else {
+            return nil
+        }
+        return killer
     }
 }
