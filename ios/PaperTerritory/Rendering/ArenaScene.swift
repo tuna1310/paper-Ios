@@ -118,6 +118,8 @@ private final class EntityVisualPool {
 struct ArenaHUDState: Equatable, Sendable {
     var percentage: Double = 0
     var peakPercentage: Double = 0
+    var targetPercentage: Double = GameConfig.victoryPercentage
+    var stageTitle: String?
     var kills: Int = 0
     var gameState: GameState = .playing
     var leaderboard: LeaderboardSnapshot = .empty
@@ -146,10 +148,14 @@ final class ArenaScene: SKScene {
     private var currentLeaderId: UInt8?
 
     var onHUDUpdate: ((ArenaHUDState) -> Void)?
+    var onMatchEnded: ((MatchOutcomeSnapshot) -> Void)?
     private var lastPublishedHUD = ArenaHUDState()
+    private var didReportMatchEnd = false
+    private let stageTitle: String?
 
-    init(engine: GameEngine) {
+    init(engine: GameEngine, stageTitle: String? = nil) {
         self.engine = engine
+        self.stageTitle = stageTitle
         self.territoryRenderer = TerritoryTextureRenderer(
             gridWidth: engine.grid.width,
             gridHeight: engine.grid.height,
@@ -190,6 +196,7 @@ final class ArenaScene: SKScene {
         accumulator = 0
         lastUpdateTimestamp = 0
         hudPublishTimer = 0
+        didReportMatchEnd = false
         frameMetrics.reset()
         engine.grid.markAllDirty()
         rebuildVisualPools()
@@ -391,6 +398,8 @@ final class ArenaScene: SKScene {
         let current = ArenaHUDState(
             percentage: pct,
             peakPercentage: peak,
+            targetPercentage: engine.modeConfig.victoryPercentage,
+            stageTitle: stageTitle,
             kills: engine.player.kills,
             gameState: engine.gameState,
             leaderboard: snapshot
@@ -399,6 +408,17 @@ final class ArenaScene: SKScene {
             lastPublishedHUD = current
             onHUDUpdate?(current)
         }
+        if !didReportMatchEnd && (engine.gameState == .victory || isGameOver(engine.gameState)) {
+            didReportMatchEnd = true
+            onMatchEnded?(engine.buildMatchOutcomeSnapshot())
+        }
+    }
+
+    private func isGameOver(_ state: GameState) -> Bool {
+        if case .gameOver = state {
+            return true
+        }
+        return false
     }
 }
 

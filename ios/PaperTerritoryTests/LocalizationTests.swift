@@ -27,6 +27,16 @@ final class LocalizationTests: XCTestCase {
             L10n.killsText(3)
         ]
         strings.append(contentsOf: GameConfig.botNames)
+        strings.append(contentsOf: RankTier.allCases.map(\.displayName))
+        strings.append(contentsOf: WorldMapCatalog.continents.map(\.name))
+        strings.append(contentsOf: WorldMapCatalog.allCountries.map(\.name))
+        strings.append(contentsOf: SkinCatalog.all.map(\.name))
+        strings.append(contentsOf: HeroChestTier.allCases.map(\.displayName))
+        strings.append(contentsOf: HeroChestTier.allCases.map(\.oddsDescription))
+        strings.append(contentsOf: StoreCatalog.allOffers.map(\.title))
+        strings.append(contentsOf: StoreCatalog.allOffers.map(\.subtitle))
+        let sampleMissions = DailyMissionSystem.generateDailyState(forDayKey: "2026-11-19").missions
+        strings.append(contentsOf: sampleMissions.map(\.title))
 
         let forbiddenChars = CharacterSet(
             charactersIn: "ăâđêôơưĂÂĐÊÔƠƯáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ"

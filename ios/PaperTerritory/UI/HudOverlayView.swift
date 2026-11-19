@@ -4,8 +4,10 @@ import SwiftUI
 /// pause button, and end-of-match Game Over / Victory card.
 struct HudOverlayView: View {
     let hudState: ArenaHUDState
+    var rewardSummary: MatchRewardBreakdown?
     let onTogglePause: () -> Void
     let onRestart: () -> Void
+    var onExitHome: () -> Void = {}
 
     var body: some View {
         ZStack {
@@ -33,9 +35,27 @@ struct HudOverlayView: View {
             if hudState.gameState == .paused {
                 pauseOverlay
             } else if case let .gameOver(reason) = hudState.gameState {
-                matchEndOverlay(title: L10n.gameOverTitle, subtitle: reason.localizedDescription, isVictory: false)
+                MatchEndOverlayView(
+                    title: L10n.gameOverTitle,
+                    subtitle: reason.localizedDescription,
+                    isVictory: false,
+                    peakPercentage: hudState.peakPercentage,
+                    kills: hudState.kills,
+                    rewardSummary: rewardSummary,
+                    onExitHome: onExitHome,
+                    onRestart: onRestart
+                )
             } else if hudState.gameState == .victory {
-                matchEndOverlay(title: L10n.victoryTitle, subtitle: L10n.endVictorySubtitle, isVictory: true)
+                MatchEndOverlayView(
+                    title: L10n.victoryTitle,
+                    subtitle: L10n.endVictorySubtitle,
+                    isVictory: true,
+                    peakPercentage: hudState.peakPercentage,
+                    kills: hudState.kills,
+                    rewardSummary: rewardSummary,
+                    onExitHome: onExitHome,
+                    onRestart: onRestart
+                )
             }
         }
     }
@@ -43,7 +63,8 @@ struct HudOverlayView: View {
     private var topProgressBar: some View {
         HStack(spacing: 8) {
             GeometryReader { geo in
-                let fraction = CGFloat(min(100.0, max(0.0, hudState.percentage)) / 100.0)
+                let target = max(1.0, hudState.targetPercentage)
+                let fraction = CGFloat(min(1.0, max(0.0, hudState.percentage / target)))
                 let barColors = [
                     Color(red: 0.22, green: 0.74, blue: 0.97),
                     Color(red: 0.13, green: 0.77, blue: 0.37)
@@ -58,9 +79,10 @@ struct HudOverlayView: View {
                         .frame(width: max(28, geo.size.width * fraction))
                         .padding(2)
 
-                    Text(L10n.percentageText(hudState.percentage))
-                        .font(.system(size: 14, weight: .black, design: .rounded))
+                    Text(progressBarLabel(target: target))
+                        .font(.system(size: 13, weight: .black, design: .rounded))
                         .foregroundColor(.white)
+                        .lineLimit(1)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -73,6 +95,14 @@ struct HudOverlayView: View {
                 .background(Circle().fill(Color(red: 0.11, green: 0.07, blue: 0.57)))
                 .overlay(Circle().stroke(Color.white, lineWidth: 2))
         }
+    }
+
+    private func progressBarLabel(target: Double) -> String {
+        let pctText = L10n.percentageText(hudState.percentage)
+        if let stage = hudState.stageTitle {
+            return "\(stage) • \(pctText) / \(Int(target))%"
+        }
+        return pctText
     }
 
     private var leftActionCluster: some View {
@@ -180,9 +210,9 @@ struct HudOverlayView: View {
             HStack(spacing: 12) {
                 Button(action: onTogglePause) {
                     Text(L10n.resumeButton)
-                        .font(.system(size: 16, weight: .black, design: .rounded))
+                        .font(.system(size: 15, weight: .black, design: .rounded))
                         .foregroundColor(.white)
-                        .padding(.horizontal, 22)
+                        .padding(.horizontal, 18)
                         .padding(.vertical, 10)
                         .background(Capsule().fill(Color(red: 0.18, green: 0.78, blue: 0.28)))
                         .overlay(Capsule().stroke(Color.white, lineWidth: 2))
@@ -190,13 +220,22 @@ struct HudOverlayView: View {
 
                 Button(action: onRestart) {
                     Text(L10n.restartButton)
-                        .font(.system(size: 16, weight: .black, design: .rounded))
+                        .font(.system(size: 15, weight: .black, design: .rounded))
                         .foregroundColor(.white)
-                        .padding(.horizontal, 22)
+                        .padding(.horizontal, 18)
                         .padding(.vertical, 10)
                         .background(Capsule().fill(Color(red: 0.14, green: 0.52, blue: 0.96)))
                         .overlay(Capsule().stroke(Color.white, lineWidth: 2))
                 }
+            }
+
+            Button(action: onExitHome) {
+                Text("Home")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.9))
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(Color.white.opacity(0.18)))
             }
         }
         .padding(24)
@@ -208,67 +247,5 @@ struct HudOverlayView: View {
             RoundedRectangle(cornerRadius: 24)
                 .stroke(Color.white.opacity(0.85), lineWidth: 2)
         )
-    }
-
-    private func matchEndOverlay(title: String, subtitle: String, isVictory: Bool) -> some View {
-        VStack(spacing: 14) {
-            Text(title)
-                .font(.system(size: 32, weight: .black, design: .rounded))
-                .foregroundColor(isVictory ? Color(red: 1.0, green: 0.91, blue: 0.22) : .white)
-
-            Text(subtitle)
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundColor(Color.white.opacity(0.92))
-                .multilineTextAlignment(.center)
-
-            HStack(spacing: 20) {
-                statBadge(label: L10n.bestLabel, value: L10n.percentageText(hudState.peakPercentage))
-                statBadge(label: L10n.killsLabel, value: L10n.killsText(hudState.kills))
-            }
-            .padding(.vertical, 6)
-
-            Button(action: onRestart) {
-                Text(L10n.playAgainButton)
-                    .font(.system(size: 18, weight: .black, design: .rounded))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 30)
-                    .padding(.vertical, 12)
-                    .background(Capsule().fill(Color(red: 0.18, green: 0.78, blue: 0.28)))
-                    .overlay(Capsule().stroke(Color.white, lineWidth: 2))
-            }
-        }
-        .padding(26)
-        .background(
-            RoundedRectangle(cornerRadius: 26)
-                .fill(Color(red: 0.01, green: 0.27, blue: 0.62).opacity(0.95))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 26)
-                .stroke(Color.white.opacity(0.85), lineWidth: 2.5)
-        )
-        .padding(.horizontal, 28)
-    }
-
-    private func statBadge(label: String, value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(label)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundColor(Color.white.opacity(0.75))
-            Text(value)
-                .font(.system(size: 18, weight: .black, design: .rounded))
-                .foregroundColor(.white)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.14)))
-    }
-}
-
-private extension Color {
-    init(hex: UInt32) {
-        let r = Double((hex >> 16) & 0xFF) / 255.0
-        let g = Double((hex >> 8) & 0xFF) / 255.0
-        let b = Double(hex & 0xFF) / 255.0
-        self.init(red: r, green: g, blue: b)
     }
 }
