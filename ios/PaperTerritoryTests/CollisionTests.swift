@@ -2,7 +2,7 @@ import XCTest
 @testable import PaperTerritory
 
 final class CollisionTests: XCTestCase {
-    func testSelfTrailCollisionEndsMatchWithSelfTrailReason() {
+    func testCrossingOwnTrailDoesNotKillPlayer() {
         let engine = GameEngine(
             gridWidth: 60,
             gridHeight: 60,
@@ -26,9 +26,49 @@ final class CollisionTests: XCTestCase {
             engine.tick()
         }
 
-        XCTAssertEqual(engine.gameState, .gameOver(.selfTrail))
-        XCTAssertFalse(engine.player.isAlive)
-        XCTAssertEqual(engine.grid.countCells(for: engine.player.id), 0)
+        XCTAssertEqual(engine.gameState, .playing)
+        XCTAssertTrue(engine.player.isAlive)
+        XCTAssertGreaterThan(engine.grid.countCells(for: engine.player.id), 0)
+    }
+
+    func testHeadOnInsideOwnTerritoryProtectsDefenderAndEliminatesInvader() {
+        let grid = GridMap()
+        grid.initStarterTerritory(ownerId: 1, centerX: 50, centerY: 50)
+        grid.initStarterTerritory(ownerId: 2, centerX: 80, centerY: 80, radius: 5)
+
+        // Defender (id 1) has smaller total territory, but is standing inside own land (50, 50).
+        let defender = Entity(
+            id: 1,
+            name: "You",
+            isBot: false,
+            palette: SkinPalette.playerDefault,
+            spawn: GridPoint(gx: 50, gy: 50),
+            initialDirection: .right
+        )
+        // Invader (id 2) has much larger territory, but is outside its own land at (50, 50).
+        let invader = Entity(
+            id: 2,
+            name: "Nova",
+            isBot: true,
+            palette: SkinPalette.distinctBotPalettes[0],
+            spawn: GridPoint(gx: 50, gy: 50),
+            initialDirection: .left
+        )
+
+        let prev = [GridPoint(gx: 49, gy: 50), GridPoint(gx: 51, gy: 50)]
+        let outcomes = [EntityStepOutcome(), EntityStepOutcome()]
+        let detector = CollisionDetector()
+
+        let events = detector.checkCollisions(
+            entities: [defender, invader],
+            grid: grid,
+            previousCells: prev,
+            stepOutcomes: outcomes,
+            headOnRule: .largerTerritoryWins
+        )
+        XCTAssertEqual(events.count, 1)
+        XCTAssertEqual(events[0].victimId, invader.id)
+        XCTAssertEqual(events[0].killerId, defender.id)
     }
 
     func testCuttingBotTrailEliminatesBotAndClearsItsTerritoryToNeutral() {

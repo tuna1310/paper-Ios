@@ -39,9 +39,6 @@ final class CollisionDetector {
             if outcome.hitBoundary {
                 eliminatedIds.insert(entity.id)
                 eventsBuffer.append(CollisionEvent(victimId: entity.id, killerId: nil, reason: .boundary))
-            } else if outcome.enteredSelfTrail {
-                eliminatedIds.insert(entity.id)
-                eventsBuffer.append(CollisionEvent(victimId: entity.id, killerId: nil, reason: .selfTrail))
             }
         }
     }
@@ -103,31 +100,47 @@ final class CollisionDetector {
     }
 
     private func resolveHeadOn(first: Entity, second: Entity, grid: GridMap, rule: HeadOnRule) {
+        let firstInOwn = grid.owner(at: first.cellX, gy: first.cellY) == first.id
+        let secondInOwn = grid.owner(at: second.cellX, gy: second.cellY) == second.id
+        if firstInOwn && secondInOwn {
+            return
+        }
+        if firstInOwn {
+            recordHeadOnLoss(victim: second, killer: first)
+            return
+        }
+        if secondInOwn {
+            recordHeadOnLoss(victim: first, killer: second)
+            return
+        }
+
         if rule == .bothDie {
-            eliminatedIds.insert(first.id)
-            eliminatedIds.insert(second.id)
-            eventsBuffer.append(CollisionEvent(victimId: first.id, killerId: second.id, reason: .headOnMutual))
-            eventsBuffer.append(CollisionEvent(victimId: second.id, killerId: first.id, reason: .headOnMutual))
+            recordHeadOnMutual(first: first, second: second)
             return
         }
 
         let firstCount = grid.countCells(for: first.id)
         let secondCount = grid.countCells(for: second.id)
         if firstCount > secondCount {
-            eliminatedIds.insert(second.id)
-            eventsBuffer.append(
-                CollisionEvent(victimId: second.id, killerId: first.id, reason: .headOnLoss(killerName: first.name))
-            )
+            recordHeadOnLoss(victim: second, killer: first)
         } else if secondCount > firstCount {
-            eliminatedIds.insert(first.id)
-            eventsBuffer.append(
-                CollisionEvent(victimId: first.id, killerId: second.id, reason: .headOnLoss(killerName: second.name))
-            )
+            recordHeadOnLoss(victim: first, killer: second)
         } else {
-            eliminatedIds.insert(first.id)
-            eliminatedIds.insert(second.id)
-            eventsBuffer.append(CollisionEvent(victimId: first.id, killerId: second.id, reason: .headOnMutual))
-            eventsBuffer.append(CollisionEvent(victimId: second.id, killerId: first.id, reason: .headOnMutual))
+            recordHeadOnMutual(first: first, second: second)
         }
+    }
+
+    private func recordHeadOnLoss(victim: Entity, killer: Entity) {
+        eliminatedIds.insert(victim.id)
+        eventsBuffer.append(
+            CollisionEvent(victimId: victim.id, killerId: killer.id, reason: .headOnLoss(killerName: killer.name))
+        )
+    }
+
+    private func recordHeadOnMutual(first: Entity, second: Entity) {
+        eliminatedIds.insert(first.id)
+        eliminatedIds.insert(second.id)
+        eventsBuffer.append(CollisionEvent(victimId: first.id, killerId: second.id, reason: .headOnMutual))
+        eventsBuffer.append(CollisionEvent(victimId: second.id, killerId: first.id, reason: .headOnMutual))
     }
 }

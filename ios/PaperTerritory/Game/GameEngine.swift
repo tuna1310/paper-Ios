@@ -7,6 +7,7 @@ final class GameEngine {
     let floodFill: FloodFill
     let collisionDetector: CollisionDetector
     let botAI: BotAI
+    let modeConfig: MatchModeConfig
 
     private(set) var player: Entity
     private(set) var bots: [Entity] = []
@@ -38,12 +39,14 @@ final class GameEngine {
         gridWidth: Int = GameConfig.gridSize,
         gridHeight: Int = GameConfig.gridSize,
         settings: MatchSettings = .default,
-        seed: UInt64 = 0x5041_5045_5232
+        seed: UInt64 = 0x5041_5045_5232,
+        modeConfig: MatchModeConfig = .classic
     ) {
         self.grid = GridMap(width: gridWidth, height: gridHeight)
         self.floodFill = FloodFill(gridWidth: gridWidth, gridHeight: gridHeight)
         self.collisionDetector = CollisionDetector()
         self.settings = settings
+        self.modeConfig = modeConfig
         self.botAI = BotAI(difficulty: settings.botDifficulty, seed: seed ^ 0x1234_5678)
         self.rng = SeededRandomGenerator(seed: seed)
 
@@ -51,7 +54,7 @@ final class GameEngine {
             id: GameConfig.humanPlayerId,
             name: L10n.playerDefaultName,
             isBot: false,
-            palette: SkinPalette.playerDefault,
+            palette: modeConfig.playerPalette,
             spawn: GridPoint(gx: gridWidth / 2, gy: gridHeight / 2),
             initialDirection: .right,
             gridSize: gridWidth
@@ -151,7 +154,52 @@ final class GameEngine {
         recentEvents.removeAll(keepingCapacity: true)
 
         botAI.update(dt: dt, bots: bots, allEntities: entities, grid: grid)
+        advanceEntities(dt: dt)
 
+        let events = collisionDetector.checkCollisions(
+            entities: entities,
+            grid: grid,
+            previousCells: previousCellsBuffer,
+            stepOutcomes: stepOutcomesBuffer,
+            headOnRule: settings.headOnRule
+        )
+
+        for event in events {
+            recentEvents.append(event)
+            applyElimination(event)
+        }
+
+        let currentPct = playerTerritoryPercentage
+        if currentPct > peakTerritoryPercentage {
+            peakTerritoryPercentage = currentPct
+        }
+
+        if gameState == .playing && hasReachedVictoryTarget(currentPercentage: currentPct) {
+            gameState = .victory
+        }
+    }
+
+    func leaderboardSnapshot() -> LeaderboardSnapshot {
+        Leaderboard.build(entities: entities, grid: grid)
+    }
+
+    func buildMatchOutcomeSnapshot() -> MatchOutcomeSnapshot {
+        let board = leaderboardSnapshot()
+        let rank = board.topFive.first(where: \.isPlayer)?.rank
+            ?? board.playerOutsideTopFive?.rank
+            ?? entities.count
+        return MatchOutcomeSnapshot(
+            peakPercentage: peakTerritoryPercentage,
+            finalPercentage: playerTerritoryPercentage,
+            kills: player.kills,
+            elapsedSeconds: elapsedTime,
+            isVictory: gameState == .victory,
+            finalRank: rank,
+            countryStageId: modeConfig.countryStageId
+        )
+    }
+
+    private func advanceEntities(dt: Double) {
         if previousCellsBuffer.count != entities.count {
             previousCellsBuffer = Array(repeating: GridPoint(gx: 0, gy: 0), count: entities.count)
             stepOutcomesBuffer = Array(repeating: EntityStepOutcome(), count: entities.count)
@@ -173,32 +221,13 @@ final class GameEngine {
                 stepOutcomesBuffer[idx] = EntityStepOutcome()
             }
         }
-
-        let events = collisionDetector.checkCollisions(
-            entities: entities,
-            grid: grid,
-            previousCells: previousCellsBuffer,
-            stepOutcomes: stepOutcomesBuffer,
-            headOnRule: settings.headOnRule
-        )
-
-        for event in events {
-            recentEvents.append(event)
-            applyElimination(event)
-        }
-
-        let currentPct = playerTerritoryPercentage
-        if currentPct > peakTerritoryPercentage {
-            peakTerritoryPercentage = currentPct
-        }
-
-        if gameState == .playing && grid.countCells(for: player.id) >= grid.totalPlayableCells {
-            gameState = .victory
-        }
     }
 
-    func leaderboardSnapshot() -> LeaderboardSnapshot {
-        Leaderboard.build(entities: entities, grid: grid)
+    private func hasReachedVictoryTarget(currentPercentage: Double) -> Bool {
+        if modeConfig.victoryPercentage >= 100.0 {
+            return grid.countCells(for: player.id) >= grid.totalPlayableCells
+        }
+        return currentPercentage >= modeConfig.victoryPercentage
     }
 
     private func applyElimination(_ event: CollisionEvent) {

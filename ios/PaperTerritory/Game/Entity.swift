@@ -195,10 +195,7 @@ final class Entity {
                 onLoopClosure?(self)
             }
         } else {
-            if trail.contains(gx: gx, gy: gy) {
-                outcome.enteredSelfTrail = true
-                return true
-            }
+            // Paper.io 2 rule: crossing your own active trail is non-lethal.
             trail.append(gx: gx, gy: gy)
         }
 

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Color triple for an entity's territory fill, 2.5D bevel edge, and ribbon trail.
-struct EntityPalette: Sendable {
+struct EntityPalette: Equatable, Hashable, Sendable {
     let baseHex: UInt32
     let darkHex: UInt32
     let trailHex: UInt32

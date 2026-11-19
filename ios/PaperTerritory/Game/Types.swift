@@ -196,3 +196,27 @@ struct CaptureResult: Equatable, Sendable {
         CaptureResult(ownerId: ownerId, capturedCellCount: 0, capturedBounds: .empty)
     }
 }
+
+/// Optional match customization for skin palette and World Conquest stage targets.
+struct MatchModeConfig: Equatable, Sendable {
+    var playerPalette: EntityPalette
+    var victoryPercentage: Double
+    var countryStageId: String?
+
+    static let classic = MatchModeConfig(
+        playerPalette: SkinPalette.playerDefault,
+        victoryPercentage: GameConfig.victoryPercentage,
+        countryStageId: nil
+    )
+}
+
+/// Immutable match performance summary emitted when a match ends.
+struct MatchOutcomeSnapshot: Equatable, Sendable {
+    let peakPercentage: Double
+    let finalPercentage: Double
+    let kills: Int
+    let elapsedSeconds: Double
+    let isVictory: Bool
+    let finalRank: Int
+    let countryStageId: String?
+}
