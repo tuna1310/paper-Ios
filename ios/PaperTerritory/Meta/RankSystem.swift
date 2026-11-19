@@ -17,8 +17,8 @@ enum RankTier: Int, CaseIterable, Codable, Identifiable, Sendable {
     case platinum = 3
     case diamond = 4
     case elite = 5
-    case master = 6
-    case grandmaster = 7
+    case ace = 6
+    case champion = 7
     case warlord = 8
     case legend = 9
 

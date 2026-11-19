@@ -7,9 +7,9 @@ struct ParentGateView: View {
     let onApproved: () -> Void
     let onCancel: () -> Void
 
-    @State private var lhs: Int = Int.random(in: 4...9)
-    @State private var rhs: Int = Int.random(in: 3...8)
-    @State private var answerText: String = ""
+    @State private var lhs = Int.random(in: 4...9)
+    @State private var rhs = Int.random(in: 3...8)
+    @State private var answerText = ""
     @State private var showError = false
 
     private var expectedAnswer: Int {

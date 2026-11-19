@@ -138,10 +138,17 @@ final class ProgressionAndEconomyTests: XCTestCase {
             XCTAssertEqual(store.profile.diamonds, beforeDiamonds - tier.diamondCost + (reward?.diamonds ?? 0))
         }
 
-        // Verify persistence round-trip
+        // Verify persistence round-trip (Hero Chests may auto-equip a newly unlocked skin)
+        let expectedEquippedSkinId = store.profile.equippedSkinId
+        let expectedOwnedSkinIds = store.profile.ownedSkinIds
+        let expectedGold = store.profile.gold
+        let expectedDiamonds = store.profile.diamonds
         let reloaded = PlayerProfileStore(defaults: defaults, seed: 0x1234_ABCD)
         XCTAssertTrue(reloaded.profile.ownedSkinIds.contains(goldSkin.id))
         XCTAssertTrue(reloaded.profile.ownedSkinIds.contains(diamondSkin.id))
-        XCTAssertEqual(reloaded.profile.equippedSkinId, diamondSkin.id)
+        XCTAssertEqual(reloaded.profile.ownedSkinIds, expectedOwnedSkinIds)
+        XCTAssertEqual(reloaded.profile.equippedSkinId, expectedEquippedSkinId)
+        XCTAssertEqual(reloaded.profile.gold, expectedGold)
+        XCTAssertEqual(reloaded.profile.diamonds, expectedDiamonds)
     }
 }
