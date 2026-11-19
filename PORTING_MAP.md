@@ -21,8 +21,8 @@ This document tracks how modules and tests from the reference prototype (`../pap
 | `src/engine/GameEngine.ts` | `Game/GameEngine.swift`, `Game/Leaderboard.swift` | Step 1–2 | Fixed `1/60s` timestep match orchestrator, Top 5 leaderboard + human rank extraction, clear state reset on match start, English notifications. |
 | `src/ui/TerritoryRenderer.ts`, `GameRenderer.ts` | `Rendering/TerritoryTextureRenderer.swift`, `Rendering/ArenaScene.swift` | Step 1–3 | Dirty-rect `[UInt32]` pixel buffer -> single `SKTexture`, pooled `SKSpriteNode` trail segments & entity nodes, smooth camera follow, zero allocations in `SKScene.update`. |
 | `src/ui/InputController.ts` | `Rendering/ArenaScene.swift`, `Core/InputQueue.swift` | Step 1 | Direct `touchesBegan`/`touchesMoved` swipe vector detection inside `SKScene` (bypassing SwiftUI gesture latency) + iPad/Simulator arrow/WASD keyboard steering. |
-| `src/ui/HudRenderer.ts` | `UI/HudOverlayView.swift` | Step 2–3 | SwiftUI HUD overlay displaying % progress bar, kill counter, Top 5 leaderboard, pause/restart controls, match end modal. |
-| `src/meta/*` & `src/ui/screens/*` | `Data/*`, `Skins/*`, `UI/*`, `Audio/*` | Steps 4–7 | Procedural 120+ Skin Generator, SaveStore, Shop, Daily Gift, Chests, Settings, Parent Gate, Team Battle, Seasonal JSON events, `AVAudioEngine` synth SFX. |
+| `src/ui/HudRenderer.ts` | `UI/HudOverlayView.swift`, `UI/MatchEndOverlayView.swift` | Step 2–3 | SwiftUI HUD overlay displaying % progress bar (with World stage goal), kill counter, Top 5 leaderboard, pause/restart/home controls, and match-end reward breakdown card. |
+| `src/meta/*` & `src/ui/screens/*` | `Data/PlayerProfileStore.swift`, `Skins/SkinCatalog.swift`, `Meta/RankSystem.swift`, `Meta/DailyMissionSystem.swift`, `Meta/WorldMapData.swift`, `Meta/HeroChestSystem.swift`, `Meta/StoreKitManager.swift`, `UI/*` | Paper.io 2 Native | 100% pure native SwiftUI + StoreKit 2: dual Gold/Diamonds economy, 10 rank tiers (`Bronze`–`Legend`), 3 daily random missions + 1%/`<=1,000` Daily Chest, 6 continents × 8 countries World Conquest, 19 procedural skins, Common/Rare/Super Diamond Hero Chests, Real-Money Gold/Diamond stores, Parent Gate, and `UserDefaults` persistence. |
 
 ---
 
@@ -33,8 +33,9 @@ This document tracks how modules and tests from the reference prototype (`../pap
 | `tests/engine/GridMap.test.ts` | `GridMapTests.swift` | Step 1 |
 | `tests/engine/FloodFill.test.ts` | `FloodFillTests.swift` | Step 1 |
 | `tests/engine/Player.test.ts` | `MovementAndInputTests.swift` | Step 1 |
-| `tests/engine/Collision.test.ts` | `CollisionTests.swift` | Step 2 |
+| `tests/engine/Collision.test.ts` | `CollisionTests.swift` | Step 2 + Paper.io 2 |
 | `tests/engine/TerritoryClaiming.test.ts` | `FloodFillTests.swift`, `CollisionTests.swift` | Step 1–2 |
 | `tests/ai/BotController.test.ts` | `BotAITests.swift` | Step 2 |
 | `tests/engine/GameEngine.test.ts` | `LeaderboardTests.swift`, `GameEngineTests.swift` | Step 2 |
-| *(New iOS requirement)* | `LocalizationTests.swift` | Step 1 |
+| *(New iOS requirement)* | `LocalizationTests.swift` | Step 1 + Paper.io 2 |
+| *(New iOS requirement)* | `ProgressionAndEconomyTests.swift` | Paper.io 2 |

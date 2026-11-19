@@ -52,5 +52,25 @@ This log documents architectural choices, reconciled requirements, formulas, and
   - `wrapMultilineStatementBraces` forces `{` onto a standalone new line on multiline statements, directly contradicting SwiftLint's default `opening_brace` rule and Apple's standard same-line brace style; disabling it keeps both tools 100% aligned.
   - Conversely, `wrapIfStatementBodies` and `redundantReturn` produce uniform, clean modern Swift and are applied automatically on `macos-latest` via `.github/workflows/format-fix.yml`.
 
+## Decision 8: Paper.io 2 Gameplay Ruleset, Dual Currency, 10 Ranks, Daily Chest, 6x8 World Map & Native StoreKit 2 Shop
+- **Gameplay Ruleset Update (`Entity.swift`, `CollisionDetector.swift`):**
+  - Crossing your own active trail is **non-lethal** (`processEnteredCellCenter` deduplicates trail cells without setting `enteredSelfTrail`).
+  - A player is only eliminated when **outside their own territory** and struck on their exposed trail (or losing a head-on clash outside their own territory / hitting an eliminate border / zero-territory starvation). In head-on clashes, a defender standing inside their own territory automatically eliminates an outside invader, and two players simultaneously inside their own territories both survive.
+- **Dual Currencies & 10-Tier Rank Ladder (`RankSystem.swift`):**
+  - Every completed match awards **Gold** (`~6.0 × %` + kill/victory/rank-multiplier bonuses) and **Diamonds** (`~0.45 × %` + kill/victory/rank-multiplier bonuses) scaled proportionally to territory percentage achieved (`max(peakPercentage, finalPercentage)`).
+  - 10 competitive tiers mapped 1:1 from Bronze to Legend (`Bronze`, `Silver`, `Gold`, `Platinum`, `Diamond`, `Elite`, `Master`, `Grandmaster`, `Warlord`, `Legend`) with progressive RP thresholds (`0` to `6,500`) and `+5%` per-tier reward multiplier.
+- **Daily Missions & Daily Mission Chest (`DailyMissionSystem.swift`):**
+  - Deterministically rotates **3 distinct random missions per UTC day** (`yyyy-MM-dd`).
+  - Completing `3/3` missions unlocks 1 **Daily Mission Chest** with a **1% chance** to drop an unowned skin and a **99% chance** to grant random Gold (`100...1,000`) and Diamonds (`20...1,000`), strictly capped at `<= 1,000` each.
+- **World Conquest (`WorldMapData.swift`):**
+  - 6 inhabited continents (`Asia`, `Europe`, `North America`, `South America`, `Africa`, `Oceania`) × **8 representative countries each (`48` stages total)** with native procedural SwiftUI flags (`CountryFlagBadgeView`) and `76×76` conquest arenas.
+  - Asia starts unlocked; conquering `8/8` countries in continent `N` automatically unlocks continent `N + 1`.
+- **Native 4-Zone Shop & StoreKit 2 (`SkinCatalog.swift`, `HeroChestSystem.swift`, `StoreKitManager.swift`, `ShopView.swift`, `ParentGateView.swift`):**
+  - 100% pure native SwiftUI + Apple `StoreKit` 2 (zero third-party SDKs), protected by a kid-safe math `ParentGateView` before real-money purchases:
+    1. **Skins:** 19 procedural skins purchasable with Free/Gold/Diamonds/Real-Money StoreKit 2.
+    2. **Hero Chests (Diamonds):** `Common Chest` (`50`), `Rare Chest` (`150`), and `Super Chest` (`400`).
+    3. **Gold Store:** Real-money Gold packs via `StoreKit` 2.
+    4. **Diamond Store:** Real-money Diamond packs via `StoreKit` 2.
+
 ## Performance Measurements Log
 - *Baseline (Simulator CI / Windows authoring environment):* Benchmarks for FloodFill, GridMap dirty updates, and 15-bot 10-second simulation runs are executed in `GameEngineTests` / `FloodFillTests` on `macos-latest` CI; physical iPhone 60/120 Hz frame-time telemetry (`FrameMetrics` via `CACurrentMediaTime()` + `os_signpost`) will be recorded here once profiled on hardware.
