@@ -225,10 +225,11 @@ final class GameEngine {
     }
 
     private func creditKiller(for event: CollisionEvent, victimId: UInt8) -> Entity? {
-        guard event.reason != .headOnMutual, let killerId = event.killerId, killerId != victimId else {
-            return nil
+        let isValidCredit = event.reason != .headOnMutual && event.killerId != victimId
+        let candidate = event.killerId.flatMap { killerId in
+            entities.first(where: { $0.id == killerId })
         }
-        guard let killer = entities.first(where: { $0.id == killerId }), killer.isAlive else {
+        guard isValidCredit, let killer = candidate, killer.isAlive else {
             return nil
         }
         return killer

@@ -129,3 +129,15 @@ Tracks every GitHub Actions CI run (`macos-latest`, `.github/workflows/ios.yml`)
 - **Fixes applied:**
   - Refactored `BotAI.swift` (`nearHorizontalEdge`/`nearVerticalEdge`) and `GameEngine.swift` (`creditKiller(for:victimId:)`) into single-line `if ... {` statements with identical logic; scanned all 33 Swift files confirming zero other standalone `{` lines.
   - Disabled `wrapMultilineStatementBraces` in `ios/.swiftformat` so SwiftFormat and SwiftLint's `opening_brace` agree permanently, documented in `docs/CI_ERRORS.md` and `DECISIONS.md`.
+
+---
+
+## Round 10 — Run #9 (`44532022540`, commit `9bd07cf`) Merge `repeatedGuard` in `GameEngine.creditKiller`
+
+- **Observed CI result (`macos-15`, pinned `Xcode 16.4`):**
+  - `Build Unsigned IPA (iOS)`: **`SUCCESS` (`✅`)**, uploaded **`paperio-unsigned-ipa` (`437,764` bytes)**.
+  - `Test & Lint (iOS Simulator)`: `XcodeGen` (`✅`), `Simulator` (`✅`), **`XcodeTest` (28/28 `✅`)**, and **`SwiftLint` (0 violations `✅`)** all passed.
+  - Failed **only** on `Check SwiftFormat` in `GameEngine.swift:228-231` (`repeatedGuard` + `wrap` on the two consecutive `guard ... else { return nil }` statements in `creditKiller`).
+- **Fixes applied:**
+  - Extracted `isValidCredit` and `candidate` local `let` constants inside `GameEngine.creditKiller` and merged into a single short `guard isValidCredit, let killer = candidate, killer.isAlive else { return nil }` (`74` chars <= 120) with zero behavior change.
+  - Verified across all 33 Swift files under `ios/` that zero other consecutive identical-body `guard`s or `> 120`-char lines exist.
